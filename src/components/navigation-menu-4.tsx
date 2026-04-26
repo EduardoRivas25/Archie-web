@@ -20,40 +20,10 @@ import {
 
 // Navigation links array to be used in both desktop and mobile menus
 const navigationLinks = [
-  { href: "#", label: "Inicio" },
-  {
-    label: "Características",
-    submenu: true,
-    type: "description",
-    items: [
-      {
-        href: "#",
-        label: "Tutor Inteligente",
-        description: "Aprende con explicaciones paso a paso a tu propio ritmo.",
-      },
-      {
-        href: "#",
-        label: "Aprendizaje Adaptativo",
-        description: "Detecta tu nivel automáticamente y ajusta la enseñanza.",
-      },
-      {
-        href: "#",
-        label: "Resolución Práctica",
-        description: "Entiende temas difíciles y resuelve problemas reales.",
-      },
-    ],
-  },
-  {
-    label: "Pricing",
-    submenu: true,
-    type: "simple",
-    items: [
-      { href: "#", label: "Plan Free" },
-      { href: "#", label: "Plan Pro" },
-      { href: "#", label: "Plan Estudiante" },
-    ],
-  },
-  { href: "#", label: "Demo / Probar" },
+  { href: "#inicio", label: "Inicio" },
+  { href: "#que-es", label: "¿Qué es Archie?" },
+  { href: "#que-hace", label: "¿Qué hace Archie?" },
+  { href: "#pricing", label: "Pricing" },
 ]
 
 export default function Component() {

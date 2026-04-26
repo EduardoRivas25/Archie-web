@@ -41,13 +41,17 @@ function App() {
         or by adding pt-16 if the element is in normal flow. 
         Since the NavigationBar is sticky top-0, we can add pt-16 to main.
       */}
-      <main className="pt-16">
+      <main className="pt-16" id="inicio">
         <h1 className="text-white bg-[#0d0d0d] h-[1px]"></h1>
         <HeroScrollAnimation />
 
-        <WhatIsArchie />
+        <div id="que-es" className="scroll-mt-20">
+          <WhatIsArchie />
+        </div>
         
-        <WhatDoesArchieDo />
+        <div id="que-hace" className="scroll-mt-20">
+          <WhatDoesArchieDo />
+        </div>
 
         <AnimatedCarousel
           title="Potenciado por"
@@ -63,7 +67,9 @@ function App() {
           padding="py-10 lg:py-20"
         />
 
-        <PricingSection />
+        <div id="pricing" className="scroll-mt-20">
+          <PricingSection />
+        </div>
       </main>
 
       <Footer7 />

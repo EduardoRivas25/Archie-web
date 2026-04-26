@@ -97,7 +97,7 @@ export function VercelV0Chat() {
     return (
         <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 space-y-4 md:space-y-8">
             <h1 className={cn(
-                "text-2xl md:text-4xl font-bold mt-4 md:mt-10 transition-colors text-center",
+                "text-2xl md:text-4xl font-bold mt-0 md:mt-10 mb-64 md:mb-0 transition-colors text-center",
                 theme === 'dark' ? "text-white" : "text-gray-900"
             )}>
                 ¿En qué te puedo ayudar hoy?

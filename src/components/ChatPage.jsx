@@ -69,9 +69,11 @@ export function ChatPage() {
         </header>
 
         {/* Chat Main */}
-        <main className="flex-1 overflow-y-auto w-full">
-          <div className="max-w-4xl mx-auto w-full px-4 pt-10 pb-20">
-            <VercelV0Chat />
+        <main className="flex-1 overflow-y-auto w-full flex flex-col">
+          <div className="flex-1 flex flex-col justify-start md:justify-start lg:justify-start min-h-0">
+            <div className="max-w-4xl mx-auto w-full px-4 pt-4 pb-10 md:pt-10 md:pb-20 mt-auto md:mt-0">
+              <VercelV0Chat />
+            </div>
           </div>
         </main>
       </div>

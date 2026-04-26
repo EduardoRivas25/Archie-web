@@ -74,7 +74,10 @@ function useAutoResizeTextarea({
     return { textareaRef, adjustHeight };
 }
 
+import { useTheme } from "@/context/ThemeContext";
+
 export function VercelV0Chat() {
+    const { theme } = useTheme();
     const [value, setValue] = useState("");
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
@@ -93,12 +96,18 @@ export function VercelV0Chat() {
 
     return (
         <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 space-y-8">
-            <h1 className="text-4xl font-bold text-white mt-10">
+            <h1 className={cn(
+                "text-4xl font-bold mt-10 transition-colors",
+                theme === 'dark' ? "text-white" : "text-gray-900"
+            )}>
                 ¿En qué te puedo ayudar hoy?
             </h1>
 
             <div className="w-full">
-                <div className="relative bg-neutral-900 rounded-xl border border-neutral-800 shadow-lg">
+                <div className={cn(
+                    "relative rounded-xl border shadow-lg transition-colors",
+                    theme === 'dark' ? "bg-neutral-900 border-neutral-800" : "bg-white border-gray-200 shadow-xl"
+                )}>
                     <div className="overflow-y-auto">
                         <Textarea
                             ref={textareaRef}
@@ -114,7 +123,7 @@ export function VercelV0Chat() {
                                 "resize-none",
                                 "bg-transparent",
                                 "border-none",
-                                "text-white text-sm",
+                                theme === 'dark' ? "text-white" : "text-gray-800",
                                 "focus:outline-none",
                                 "focus-visible:ring-0 focus-visible:ring-offset-0",
                                 "placeholder:text-neutral-500 placeholder:text-sm",
@@ -130,9 +139,12 @@ export function VercelV0Chat() {
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
-                                className="group p-2 hover:bg-neutral-800 rounded-lg transition-colors flex items-center gap-1"
+                                className={cn(
+                                    "group p-2 rounded-lg transition-colors flex items-center gap-1",
+                                    theme === 'dark' ? "hover:bg-neutral-800" : "hover:bg-gray-100"
+                                )}
                             >
-                                <Paperclip className="w-4 h-4 text-white" />
+                                <Paperclip className={cn("w-4 h-4", theme === 'dark' ? "text-white" : "text-gray-500")} />
                                 <span className="text-xs text-zinc-400 hidden group-hover:inline transition-opacity">
                                     Adjuntar
                                 </span>
@@ -141,7 +153,10 @@ export function VercelV0Chat() {
                         <div className="flex items-center gap-2">
                             <button
                                 type="button"
-                                className="px-2 py-1 rounded-lg text-sm text-zinc-400 transition-colors border border-dashed border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1"
+                                className={cn(
+                                    "px-2 py-1 rounded-lg text-sm transition-colors border border-dashed flex items-center justify-between gap-1",
+                                    theme === 'dark' ? "text-zinc-400 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800" : "text-gray-500 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                                )}
                             >
                                 <PlusIcon className="w-4 h-4" />
                                 Proyecto
@@ -149,10 +164,10 @@ export function VercelV0Chat() {
                             <button
                                 type="button"
                                 className={cn(
-                                    "px-1.5 py-1.5 rounded-lg text-sm transition-colors border border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800 flex items-center justify-between gap-1",
+                                    "px-1.5 py-1.5 rounded-lg text-sm transition-colors border flex items-center justify-between gap-1",
                                     value.trim()
                                         ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                                        : "text-zinc-400"
+                                        : theme === 'dark' ? "text-zinc-400 border-zinc-700 hover:bg-zinc-800" : "text-gray-400 border-gray-200 hover:bg-gray-50"
                                 )}
                             >
                                 <ArrowUpIcon
@@ -173,14 +188,17 @@ export function VercelV0Chat() {
                     <ActionButton
                         icon={<Calculator className="w-4 h-4" />}
                         label="Aprende Matemáticas"
+                        theme={theme}
                     />
                     <ActionButton
                         icon={<Code className="w-4 h-4" />}
                         label="Programación"
+                        theme={theme}
                     />
                     <ActionButton
                         icon={<Network className="w-4 h-4" />}
                         label="Redes"
+                        theme={theme}
                     />
                 </div>
             </div>
@@ -191,13 +209,19 @@ export function VercelV0Chat() {
 interface ActionButtonProps {
     icon: React.ReactNode;
     label: string;
+    theme: string;
 }
 
-function ActionButton({ icon, label }: ActionButtonProps) {
+function ActionButton({ icon, label, theme }: ActionButtonProps) {
     return (
         <button
             type="button"
-            className="flex items-center gap-2 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 rounded-full border border-neutral-800 text-neutral-400 hover:text-white transition-colors"
+            className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-full border transition-all",
+                theme === 'dark' 
+                    ? "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white" 
+                    : "bg-white hover:bg-gray-50 border-gray-200 text-gray-500 hover:text-gray-900 shadow-sm"
+            )}
         >
             {icon}
             <span className="text-xs font-medium">{label}</span>

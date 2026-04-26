@@ -93,6 +93,8 @@ function MenuItem({
   );
 }
 
+import { useTheme } from "@/context/ThemeContext";
+
 export function UserDropdown({
   user = {
     name: "Usuario Archie",
@@ -101,13 +103,16 @@ export function UserDropdown({
     status: "online",
   },
   onAction,
+  onOpenProfile,
   promoDiscount = "20% desc.",
 }: {
   user?: { name: string; username: string; avatar: string; status: string };
   onAction?: (action: string) => void;
+  onOpenProfile?: () => void;
   promoDiscount?: string;
 }) {
   const navigate = useNavigate();
+  const { toggleTheme } = useTheme();
 
   const initials = getInitials(user.name);
   const statusColor = STATUS_COLOR[user.status.toLowerCase()] ?? STATUS_COLOR.online;
@@ -119,6 +124,14 @@ export function UserDropdown({
     }
     if (action === "logout") {
       navigate("/login");
+      return;
+    }
+    if (action === "appearance") {
+      toggleTheme();
+      return;
+    }
+    if (action === "profile") {
+      onOpenProfile?.();
       return;
     }
     onAction?.(action);

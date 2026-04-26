@@ -22,7 +22,10 @@ function groupChats(chats) {
   }, {});
 }
 
+import { useTheme } from '@/context/ThemeContext';
+
 export function ChatSidebar({ isOpen, onClose }) {
+  const { theme } = useTheme();
   const [search, setSearch] = useState('');
   const [chats, setChats] = useState(SAMPLE_CHATS);
   const [activeChat, setActiveChat] = useState(null);
@@ -54,9 +57,8 @@ export function ChatSidebar({ isOpen, onClose }) {
       {/* Sidebar panel */}
       <aside
         className={cn(
-          'fixed left-0 top-0 h-full z-50 w-72 flex flex-col',
-          'bg-[#111111] border-r border-white/8 shadow-2xl',
-          'transition-transform duration-300 ease-in-out',
+          'fixed left-0 top-0 h-full z-50 w-72 flex flex-col transition-all duration-300 ease-in-out',
+          theme === 'dark' ? 'bg-[#111111] border-r border-white/8' : 'bg-white border-r border-black/5',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -65,7 +67,10 @@ export function ChatSidebar({ isOpen, onClose }) {
           {/* Logo / collapse */}
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+            className={cn(
+              "p-1.5 rounded-lg transition-colors",
+              theme === 'dark' ? "text-gray-400 hover:text-white hover:bg-white/5" : "text-gray-500 hover:text-gray-900 hover:bg-black/5"
+            )}
             title="Cerrar"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -87,14 +92,20 @@ export function ChatSidebar({ isOpen, onClose }) {
 
         {/* Search */}
         <div className="px-3 pb-3">
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8 focus-within:border-white/20 transition-colors">
+          <div className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-xl border transition-colors",
+            theme === 'dark' ? "bg-white/5 border-white/8 focus-within:border-white/20" : "bg-gray-50 border-gray-200 focus-within:border-gray-300"
+          )}>
             <Search className="w-4 h-4 text-gray-500 shrink-0" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar conversaciones..."
-              className="flex-1 bg-transparent text-sm text-gray-200 placeholder-gray-500 outline-none"
+              className={cn(
+                "flex-1 bg-transparent text-sm outline-none placeholder-gray-500",
+                theme === 'dark' ? "text-gray-200" : "text-gray-800"
+              )}
             />
             {search && (
               <button onClick={() => setSearch('')} className="text-gray-500 hover:text-gray-300 transition-colors">
@@ -125,8 +136,10 @@ export function ChatSidebar({ isOpen, onClose }) {
                         'group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer',
                         'transition-all duration-150',
                         activeChat === chat.id
-                          ? 'bg-[#0066cc]/15 border border-[#0066cc]/25 text-white'
-                          : 'hover:bg-white/5 text-gray-300 hover:text-white border border-transparent'
+                          ? 'bg-[#0066cc]/15 border border-[#0066cc]/25 text-[#4da6ff]'
+                          : theme === 'dark' 
+                            ? 'hover:bg-white/5 text-gray-300 hover:text-white border border-transparent' 
+                            : 'hover:bg-black/5 text-gray-600 hover:text-gray-900 border border-transparent'
                       )}
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
@@ -134,7 +147,7 @@ export function ChatSidebar({ isOpen, onClose }) {
                           'w-3.5 h-3.5 shrink-0',
                           activeChat === chat.id ? 'text-[#4da6ff]' : 'text-gray-600 group-hover:text-gray-400'
                         )} />
-                        <span className="text-sm truncate">{chat.title}</span>
+                        <span className="text-sm truncate font-medium">{chat.title}</span>
                       </div>
 
                       {/* Delete button — visible on hover */}
@@ -162,7 +175,10 @@ export function ChatSidebar({ isOpen, onClose }) {
         </div>
 
         {/* Footer */}
-        <div className="px-3 py-3 border-t border-white/8 text-center">
+        <div className={cn(
+          "px-3 py-3 border-t text-center",
+          theme === 'dark' ? "border-white/8" : "border-black/5"
+        )}>
           <p className="text-[11px] text-gray-600">Archie AI · v1.0</p>
         </div>
       </aside>

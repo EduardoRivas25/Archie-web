@@ -107,11 +107,11 @@ export function HeroScrollAnimation() {
         />
 
         {/* Overlay Content */}
-        <div className="absolute inset-0 flex flex-col justify-end z-10 pointer-events-none px-6 md:px-16 pb-32">
+        <div className="absolute inset-0 flex flex-col justify-end z-10 pointer-events-none px-6 md:px-16 pb-24 md:pb-32">
           <SplitText
             text="Archie"
             tag="h1"
-            className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter text-white drop-shadow-2xl"
+            className="text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tighter text-white drop-shadow-2xl"
             delay={100}
             duration={0.6}
             ease="power3.out"
@@ -120,11 +120,11 @@ export function HeroScrollAnimation() {
             to={{ opacity: 1, y: 0 }}
             textAlign="left"
           />
-          <div className="mt-8 text-2xl md:text-4xl text-white drop-shadow-lg max-w-[700px] font-medium flex items-center flex-wrap gap-2">
-            Aprende
+          <div className="mt-4 md:mt-8 text-xl sm:text-3xl md:text-4xl text-white drop-shadow-lg max-w-[85%] md:max-w-[700px] font-medium flex items-center flex-wrap gap-x-2 gap-y-2 md:gap-2 pr-4 md:pr-0">
+            <span>Aprende</span>
             <RotatingText
               texts={['Matemáticas', 'Programación', 'Inteligencia Artificial', 'Redes', 'Bases de Datos']}
-              mainClassName="px-2 sm:px-2 md:px-3 bg-blue-700 text-black overflow-hidden py-0.5 sm:py-1 md:py-2 justify-center rounded-lg"
+              mainClassName="px-2 sm:px-3 md:px-4 bg-blue-700 text-black overflow-hidden py-1 md:py-2 justify-center rounded-lg"
               staggerFrom={"last"}
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
@@ -136,9 +136,9 @@ export function HeroScrollAnimation() {
             />
           </div>
 
-          <div className="absolute bottom-8 right-6 md:right-16 opacity-80 animate-bounce flex flex-col items-center">
-            <p className="text-white text-xs md:text-sm uppercase tracking-[0.2em] mb-2" style={{ writingMode: 'vertical-rl' }}>Descubrir</p>
-            <div className="w-[2px] h-12 bg-blue-500/80 rounded-full"></div>
+          <div className="absolute bottom-6 md:bottom-8 right-4 md:right-16 opacity-80 animate-bounce flex flex-col items-center">
+            <p className="text-white text-[10px] md:text-sm uppercase tracking-[0.2em] mb-2" style={{ writingMode: 'vertical-rl' }}>Descubrir</p>
+            <div className="w-[2px] h-8 md:h-12 bg-blue-500/80 rounded-full"></div>
           </div>
         </div>
 

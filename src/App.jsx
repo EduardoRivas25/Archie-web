@@ -32,6 +32,7 @@ const partnerLogos = [
 
 import { Routes, Route } from 'react-router-dom';
 import { AuthPage } from '@/components/AuthPage';
+import { ChatPage } from '@/components/ChatPage';
 
 function LandingPage() {
   return (
@@ -84,6 +85,7 @@ function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<AuthPage />} />
+      <Route path="/chat" element={<ChatPage />} />
     </Routes>
   )
 }

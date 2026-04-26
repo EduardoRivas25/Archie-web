@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, ArrowLeft } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
@@ -7,6 +8,9 @@ import Antigravity from './Antigravity';
 
 export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   return (
     <div className="relative min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4 font-sans text-gray-100 overflow-hidden">
@@ -56,7 +60,18 @@ export function AuthPage() {
             </p>
           </div>
 
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-4" onSubmit={(e) => {
+            e.preventDefault();
+            if (email.includes('@') && password.length > 0) { // any valid email to let pass for now, but user said 'algo@gmail.com'
+              if (email.endsWith('@gmail.com')) {
+                navigate('/chat');
+              } else {
+                alert('Por favor usa un correo @gmail.com para esta prueba.');
+              }
+            } else {
+              alert('Ingresa tus credenciales.');
+            }
+          }}>
             {!isLogin && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-gray-300">Nombre completo</label>
@@ -81,6 +96,8 @@ export function AuthPage() {
                 </div>
                 <input 
                   type="email" 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-[#2d2d2d] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-500"
                   placeholder="tu@correo.com"
                 />
@@ -95,6 +112,8 @@ export function AuthPage() {
                 </div>
                 <input 
                   type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-[#2d2d2d] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all placeholder-gray-500"
                   placeholder="••••••••"
                 />

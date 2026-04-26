@@ -1,114 +1,191 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
-import { useState } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { Textarea } from "@/components/textarea";
 import { cn } from "@/lib/utils";
 import {
-    ImageIcon,
-    FileUp,
-    Figma,
-    MonitorIcon,
-    CircleUserRound,
     ArrowUpIcon,
     Paperclip,
-    PlusIcon,
     Code,
     Calculator,
-    Network
+    Network,
+    ChevronDown,
+    Zap,
+    Brain,
+    Star,
+    Check,
+    ChevronRight,
+    Sparkles
 } from "lucide-react";
-
-interface UseAutoResizeTextareaProps {
-    minHeight: number;
-    maxHeight?: number;
-}
-
-function useAutoResizeTextarea({
-    minHeight,
-    maxHeight,
-}: UseAutoResizeTextareaProps) {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-    const adjustHeight = useCallback(
-        (reset?: boolean) => {
-            const textarea = textareaRef.current;
-            if (!textarea) return;
-
-            if (reset) {
-                textarea.style.height = `${minHeight}px`;
-                return;
-            }
-
-            // Temporarily shrink to get the right scrollHeight
-            textarea.style.height = `${minHeight}px`;
-
-            // Calculate new height
-            const newHeight = Math.max(
-                minHeight,
-                Math.min(
-                    textarea.scrollHeight,
-                    maxHeight ?? Number.POSITIVE_INFINITY
-                )
-            );
-
-            textarea.style.height = `${newHeight}px`;
-        },
-        [minHeight, maxHeight]
-    );
-
-    useEffect(() => {
-        // Set initial height
-        const textarea = textareaRef.current;
-        if (textarea) {
-            textarea.style.height = `${minHeight}px`;
-        }
-    }, [minHeight]);
-
-    // Adjust height on window resize
-    useEffect(() => {
-        const handleResize = () => adjustHeight();
-        window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
-    }, [adjustHeight]);
-
-    return { textareaRef, adjustHeight };
-}
-
+import archieLogo from "@/assets/Archie logo blanco.png";
 import { useTheme } from "@/context/ThemeContext";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/dropdown-menu";
+
+interface Message {
+    id: string;
+    role: "user" | "assistant";
+    content: string;
+    reasoning?: string;
+    model?: string;
+}
+
+const MODELS = [
+    { id: "rapido", name: "Rápido", description: "Responde rápidamente", icon: Zap, color: "text-blue-400" },
+    { id: "pensar", name: "Pensar", description: "Resuelve problemas complejos", icon: Brain, color: "text-blue-500" },
+    { id: "pro", name: "Pro", description: "Matemáticas y programación avanzada", icon: Sparkles, color: "text-blue-600", isDefault: true },
+];
 
 export function VercelV0Chat() {
     const { theme } = useTheme();
     const [value, setValue] = useState("");
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [selectedModel, setSelectedModel] = useState(MODELS.find(m => m.isDefault) || MODELS[0]);
+    const [isTyping, setIsTyping] = useState(false);
+    
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
         maxHeight: 200,
     });
 
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, isTyping]);
+
+    const handleSendMessage = () => {
+        if (!value.trim()) return;
+
+        const userMsg: Message = {
+            id: Date.now().toString(),
+            role: "user",
+            content: value.trim(),
+        };
+
+        setMessages(prev => [...prev, userMsg]);
+        setValue("");
+        adjustHeight(true);
+        setIsTyping(true);
+
+        // Simulate AI response
+        setTimeout(() => {
+            const aiMsg: Message = {
+                id: (Date.now() + 1).toString(),
+                role: "assistant",
+                model: selectedModel.name,
+                content: `¡Hola! Soy Archie. He recibido tu mensaje: "${userMsg.content}". Estoy aquí para ayudarte con lo que necesites, ya sea matemáticas, programación o cualquier otro tema.`,
+            };
+            setMessages(prev => [...prev, aiMsg]);
+            setIsTyping(false);
+        }, 1500);
+    };
+
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (value.trim()) {
-                setValue("");
-                adjustHeight(true);
-            }
+            handleSendMessage();
         }
     };
 
     return (
-        <div className="flex flex-col items-center w-full max-w-4xl mx-auto p-4 space-y-4 md:space-y-8">
-            <h1 className={cn(
-                "text-2xl md:text-4xl font-bold mt-0 md:mt-10 mb-64 md:mb-0 transition-colors text-center",
-                theme === 'dark' ? "text-white" : "text-gray-900"
-            )}>
-                ¿En qué te puedo ayudar hoy?
-            </h1>
+        <div className="flex flex-col w-full max-w-4xl mx-auto min-h-full">
+            {/* Messages Area */}
+            {messages.length > 0 ? (
+                <div className="flex-1 space-y-8 pb-32">
+                    {messages.map((msg) => (
+                        <div key={msg.id} className={cn(
+                            "flex flex-col gap-3 group animate-in fade-in slide-in-from-bottom-2 duration-300",
+                            msg.role === "user" ? "items-end" : "items-start"
+                        )}>
+                            {msg.role === "assistant" && (
+                                <div className="flex items-center gap-2.5 mb-1">
+                                    <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                                        <img src={archieLogo} alt="Archie" className="w-7 h-7 object-contain" />
+                                    </div>
+                                    <span className="text-xs font-bold tracking-widest opacity-80 uppercase text-blue-500">Archie {msg.model && `· ${msg.model}`}</span>
+                                </div>
+                            )}
 
-            <div className="w-full">
+                            <div className={cn(
+                                "max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm md:text-base transition-all",
+                                msg.role === "user" 
+                                    ? "bg-[#2d2d2d] text-white rounded-tr-none shadow-sm" 
+                                    : "bg-transparent text-inherit"
+                            )}>
+                                <div className={cn(
+                                    "leading-relaxed",
+                                    msg.role === "assistant" ? (theme === 'dark' ? "text-gray-200" : "text-gray-800") : ""
+                                )}>
+                                    {msg.content}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {isTyping && (
+                        <div className="flex items-start gap-3 animate-pulse">
+                            <div className="w-8 h-8 flex items-center justify-center shrink-0">
+                                <img src={archieLogo} alt="Archie" className="w-7 h-7 object-contain" />
+                            </div>
+                            <div className="flex gap-1 py-4 px-1">
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                <div className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                            </div>
+                        </div>
+                    )}
+                    <div ref={messagesEndRef} />
+                </div>
+            ) : (
+                <div className="flex flex-col items-center space-y-8 py-10 md:py-20">
+                    <h1 className={cn(
+                        "text-2xl md:text-5xl font-bold transition-colors text-center tracking-tight",
+                        theme === 'dark' ? "text-white" : "text-gray-900"
+                    )}>
+                        ¿En qué te puedo ayudar hoy?
+                    </h1>
+                    
+                    <div className="flex items-center justify-center gap-2 md:gap-3 flex-wrap max-w-2xl">
+                        <ActionButton
+                            icon={<Calculator className="w-4 h-4" />}
+                            label="Matemáticas"
+                            theme={theme}
+                            onClick={() => { setValue("Ayúdame con un problema de integrales"); }}
+                        />
+                        <ActionButton
+                            icon={<Code className="w-4 h-4" />}
+                            label="Programación"
+                            theme={theme}
+                            onClick={() => { setValue("Explícame cómo funciona un closure en JS"); }}
+                        />
+                        <ActionButton
+                            icon={<Network className="w-4 h-4" />}
+                            label="Redes"
+                            theme={theme}
+                            onClick={() => { setValue("¿Cuáles son las capas del modelo OSI?"); }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Input Section - Persistent at bottom */}
+            <div className={cn(
+                "sticky bottom-0 w-full pt-4 pb-6 transition-all",
+                messages.length > 0 ? (theme === 'dark' ? "bg-gradient-to-t from-[#0d0d0d] via-[#0d0d0d]/95 to-transparent" : "bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent") : ""
+            )}>
                 <div className={cn(
-                    "relative rounded-2xl border shadow-lg transition-colors overflow-hidden",
-                    theme === 'dark' ? "bg-[#111111] border-white/10" : "bg-white border-gray-200 shadow-xl"
+                    "relative rounded-3xl border shadow-2xl transition-all duration-300 ring-offset-0",
+                    theme === 'dark' ? "bg-[#161616]/95 border-white/10" : "bg-white border-gray-200"
                 )}>
-                    <div className="overflow-y-auto">
+                    <div className="overflow-y-auto max-h-[200px]">
                         <Textarea
                             ref={textareaRef}
                             value={value}
@@ -119,107 +196,157 @@ export function VercelV0Chat() {
                             onKeyDown={handleKeyDown}
                             placeholder="Pregúntale algo a Archie..."
                             className={cn(
-                                "w-full px-4 py-4 md:px-6 md:py-5",
+                                "w-full px-6 py-5",
                                 "resize-none",
                                 "bg-transparent",
                                 "border-none",
                                 theme === 'dark' ? "text-white" : "text-gray-800",
                                 "focus:outline-none text-base md:text-lg",
                                 "focus-visible:ring-0 focus-visible:ring-offset-0",
-                                "placeholder:text-neutral-500 placeholder:text-sm md:placeholder:text-base",
+                                "placeholder:text-neutral-500 placeholder:text-base",
                                 "min-h-[60px]"
                             )}
-                            style={{
-                                overflow: "hidden",
-                            }}
+                            style={{ overflow: "hidden" }}
                         />
                     </div>
 
-                    <div className="flex items-center justify-between p-2 md:p-3 bg-black/5 dark:bg-white/5">
-                        <div className="flex items-center gap-1 md:gap-2">
-                            <button
-                                type="button"
-                                className={cn(
-                                    "p-2 rounded-xl transition-colors flex items-center gap-1.5",
-                                    theme === 'dark' ? "hover:bg-white/10" : "hover:bg-black/5"
-                                )}
-                            >
-                                <Paperclip className={cn("w-4 h-4 md:w-5 md:h-5", theme === 'dark' ? "text-white" : "text-gray-500")} />
-                                <span className="text-xs font-medium text-zinc-400 hidden md:inline">
-                                    Adjuntar
-                                </span>
+                    <div className="flex items-center justify-between px-3 pb-3">
+                        <div className="flex items-center gap-2">
+                            {/* Model Selector Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button className={cn(
+                                        "flex items-center gap-2 px-3 py-2 rounded-2xl transition-all border font-bold text-sm",
+                                        theme === 'dark' ? "bg-white/5 border-white/10 hover:bg-white/10 text-gray-300" : "bg-gray-100 border-gray-200 hover:bg-gray-200 text-gray-700"
+                                    )}>
+                                        <selectedModel.icon className={cn("w-4 h-4", selectedModel.color)} />
+                                        <span>{selectedModel.name}</span>
+                                        <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-[280px] p-2 rounded-2xl border-white/10 bg-[#1c1c1c] text-white">
+                                    <div className="px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cambiar de modelo</div>
+                                    {MODELS.map((model) => (
+                                        <DropdownMenuItem
+                                            key={model.id}
+                                            onClick={() => setSelectedModel(model)}
+                                            className={cn(
+                                                "flex items-start gap-3 p-3 rounded-xl cursor-pointer hover:bg-white/5 transition-all",
+                                                selectedModel.id === model.id ? "bg-white/10" : ""
+                                            )}
+                                        >
+                                            <model.icon className={cn("w-5 h-5 shrink-0 mt-0.5", model.color)} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-bold text-sm">{model.name}</span>
+                                                    {selectedModel.id === model.id && <Check className="w-4 h-4 text-blue-500" />}
+                                                </div>
+                                                <p className="text-[11px] text-gray-500 line-clamp-1">{model.description}</p>
+                                            </div>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            <button className={cn(
+                                "p-2.5 rounded-full transition-colors",
+                                theme === 'dark' ? "text-gray-400 hover:text-white hover:bg-white/5" : "text-gray-500 hover:text-gray-900 hover:bg-black/5"
+                            )}>
+                                <Paperclip className="w-5 h-5" />
                             </button>
                         </div>
+                        
                         <div className="flex items-center gap-2">
-                            <button
-                                type="button"
+                             <button
+                                onClick={handleSendMessage}
+                                disabled={!value.trim() || isTyping}
                                 className={cn(
-                                    "px-3 py-1.5 rounded-xl text-xs md:text-sm font-medium transition-all border border-dashed flex items-center gap-1.5",
-                                    theme === 'dark' ? "text-zinc-400 border-zinc-700 hover:border-zinc-600 hover:bg-zinc-800" : "text-gray-500 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                                    "p-2.5 rounded-2xl transition-all flex items-center justify-center",
+                                    value.trim() && !isTyping
+                                        ? "bg-[#0066cc] text-white shadow-lg shadow-blue-500/20"
+                                        : theme === 'dark' ? "text-gray-600 bg-white/5" : "text-gray-400 bg-gray-100"
                                 )}
                             >
-                                <PlusIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                <span>Proyecto</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={cn(
-                                    "p-2 md:p-2.5 rounded-xl transition-all border flex items-center justify-center",
-                                    value.trim()
-                                        ? "bg-[#0066cc] text-white border-[#0066cc] shadow-lg shadow-blue-500/20"
-                                        : theme === 'dark' ? "text-zinc-500 border-white/10" : "text-gray-400 border-gray-200"
-                                )}
-                            >
-                                <ArrowUpIcon
-                                    className="w-4 h-4 md:w-5 md:h-5"
-                                />
-                                <span className="sr-only">Enviar</span>
+                                <ArrowUpIcon className="w-5 h-5" />
                             </button>
                         </div>
                     </div>
                 </div>
-
-                <div className="flex items-center justify-center gap-2 md:gap-3 mt-6 flex-wrap">
-                    <ActionButton
-                        icon={<Calculator className="w-4 h-4" />}
-                        label="Matemáticas"
-                        theme={theme}
-                    />
-                    <ActionButton
-                        icon={<Code className="w-4 h-4" />}
-                        label="Programación"
-                        theme={theme}
-                    />
-                    <ActionButton
-                        icon={<Network className="w-4 h-4" />}
-                        label="Redes"
-                        theme={theme}
-                    />
-                </div>
+                <p className="text-[10px] text-center mt-3 opacity-40 font-medium">Archie puede cometer errores. Considera verificar la información importante.</p>
             </div>
         </div>
     );
 }
 
-interface ActionButtonProps {
-    icon: React.ReactNode;
-    label: string;
-    theme: string;
+function ReasoningBlock({ reasoning, theme }: { reasoning: string, theme: string }) {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div className="mb-4">
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className={cn(
+                    "flex items-center gap-2 text-xs font-bold transition-all py-1.5 px-3 rounded-lg border",
+                    theme === 'dark' ? "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10" : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                )}
+            >
+                <ChevronRight className={cn("w-3.5 h-3.5 transition-transform duration-200", isOpen ? "rotate-90" : "")} />
+                <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                Mostrar razonamiento
+            </button>
+            {isOpen && (
+                <div className={cn(
+                    "mt-2 pl-4 py-3 border-l-2 text-xs md:text-sm leading-relaxed italic animate-in slide-in-from-top-1 duration-200",
+                    theme === 'dark' ? "border-white/10 text-gray-500" : "border-gray-200 text-gray-400"
+                )}>
+                    {reasoning}
+                </div>
+            )}
+        </div>
+    );
 }
 
-function ActionButton({ icon, label, theme }: ActionButtonProps) {
+function ActionButton({ icon, label, theme, onClick }: { icon: React.ReactNode; label: string; theme: string; onClick: () => void }) {
     return (
         <button
             type="button"
+            onClick={onClick}
             className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-full border transition-all",
+                "flex items-center gap-2.5 px-4 py-2.5 rounded-2xl border transition-all active:scale-95",
                 theme === 'dark'
-                    ? "bg-neutral-900 hover:bg-neutral-800 border-neutral-800 text-neutral-400 hover:text-white"
-                    : "bg-white hover:bg-gray-50 border-gray-200 text-gray-500 hover:text-gray-900 shadow-sm"
+                    ? "bg-[#1a1a1a] hover:bg-[#252525] border-white/10 text-gray-400 hover:text-white"
+                    : "bg-white hover:bg-gray-50 border-gray-200 text-gray-600 hover:text-gray-900 shadow-sm"
             )}
         >
-            {icon}
-            <span className="text-xs font-medium">{label}</span>
+            <span className="opacity-70">{icon}</span>
+            <span className="text-sm font-bold tracking-tight">{label}</span>
         </button>
     );
+}
+
+function useAutoResizeTextarea({ minHeight, maxHeight }: { minHeight: number; maxHeight?: number }) {
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const adjustHeight = useCallback((reset?: boolean) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        if (reset) {
+            textarea.style.height = `${minHeight}px`;
+            return;
+        }
+        textarea.style.height = `${minHeight}px`;
+        const newHeight = Math.max(minHeight, Math.min(textarea.scrollHeight, maxHeight ?? Number.POSITIVE_INFINITY));
+        textarea.style.height = `${newHeight}px`;
+    }, [minHeight, maxHeight]);
+
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) textarea.style.height = `${minHeight}px`;
+    }, [minHeight]);
+
+    useEffect(() => {
+        const handleResize = () => adjustHeight();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, [adjustHeight]);
+
+    return { textareaRef, adjustHeight };
 }

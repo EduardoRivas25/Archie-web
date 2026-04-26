@@ -221,10 +221,10 @@ export default function Component() {
         {/* Right side */}
         <div className="flex items-center gap-2">
           <Button asChild variant="ghost" size="sm" className="text-sm">
-            <a href="#">Iniciar Sesión</a>
+            <a href="/login">Iniciar Sesión</a>
           </Button>
           <Button asChild size="sm" className="text-sm bg-blue-600 hover:bg-blue-700 text-white border-none">
-            <a href="#">Registrarse</a>
+            <a href="/login">Registrarse</a>
           </Button>
         </div>
       </div>

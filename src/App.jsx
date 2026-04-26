@@ -30,8 +30,10 @@ const partnerLogos = [
   <PostgreSQL key="postgresql" />
 ];
 
-function App() {
+import { Routes, Route } from 'react-router-dom';
+import { AuthPage } from '@/components/AuthPage';
 
+function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0d0d0d] text-foreground font-sans">
       <NavigationBar />
@@ -48,7 +50,7 @@ function App() {
         <div id="que-es" className="scroll-mt-20">
           <WhatIsArchie />
         </div>
-        
+
         <div id="que-hace" className="scroll-mt-20">
           <WhatDoesArchieDo />
         </div>
@@ -74,6 +76,15 @@ function App() {
 
       <Footer7 />
     </div>
+  )
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<AuthPage />} />
+    </Routes>
   )
 }
 

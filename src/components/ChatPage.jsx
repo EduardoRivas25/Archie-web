@@ -1,25 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { VercelV0Chat } from '@/components/v0-ai-chat';
 import archieLogo from '@/assets/Archie texto logo blanco.png';
 import { UserDropdown } from '@/components/user-dropdown';
 import { ChatSidebar } from '@/components/ChatSidebar';
 import { PanelLeft } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
 import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
 import { cn } from '@/lib/utils';
 
 export function ChatPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true); // Default open on desktop
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { theme } = useTheme();
+  const { user, profile } = useAuth();
 
-  const user = {
-    name: "Usuario Archie",
-    username: "@usuario",
-    avatar: "",
-    initials: "UA",
-    status: "online",
-  };
+  const handleNewChat = useCallback(() => {
+    setActiveSessionId(null);
+  }, []);
+
+  const handleSelectSession = useCallback((sessionId) => {
+    setActiveSessionId(sessionId);
+  }, []);
+
+  const handleSessionCreated = useCallback((sessionId) => {
+    setActiveSessionId(sessionId);
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
 
   return (
     <div className={cn(
@@ -27,13 +36,19 @@ export function ChatPage() {
       theme === 'dark' ? "bg-[#0d0d0d] text-gray-100" : "bg-gray-50 text-gray-900"
     )}>
       {/* Sidebar */}
-      <ChatSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <ChatSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        activeSessionId={activeSessionId}
+        onSelectSession={handleSelectSession}
+        onNewChat={handleNewChat}
+        refreshTrigger={refreshTrigger}
+      />
 
       {/* Profile/Settings Modal */}
       <ProfileSettingsModal
         isOpen={profileOpen}
         onClose={() => setProfileOpen(false)}
-        user={user}
         theme={theme}
       />
 
@@ -72,7 +87,10 @@ export function ChatPage() {
         <main className="flex-1 overflow-y-auto w-full flex flex-col">
           <div className="flex-1 flex flex-col justify-start md:justify-start lg:justify-start min-h-0">
             <div className="max-w-4xl mx-auto w-full px-4 pt-4 pb-10 md:pt-10 md:pb-20 mt-auto md:mt-0">
-              <VercelV0Chat />
+              <VercelV0Chat
+                activeSessionId={activeSessionId}
+                onSessionCreated={handleSessionCreated}
+              />
             </div>
           </div>
         </main>

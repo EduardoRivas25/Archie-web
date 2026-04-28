@@ -19,12 +19,14 @@ import {
 } from "lucide-react";
 import archieLogo from "@/assets/Archie logo blanco.png";
 import { useTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
+import * as chatService from "@/services/chatService";
 
 interface Message {
     id: string;
@@ -40,13 +42,20 @@ const MODELS = [
     { id: "pro", name: "Pro", description: "Matemáticas y programación avanzada", icon: Sparkles, color: "text-blue-600", isDefault: true },
 ];
 
-export function VercelV0Chat() {
+interface VercelV0ChatProps {
+    activeSessionId?: string | null;
+    onSessionCreated?: (sessionId: string) => void;
+}
+
+export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0ChatProps) {
     const { theme } = useTheme();
+    const { user } = useAuth();
     const [value, setValue] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const [selectedModel, setSelectedModel] = useState(MODELS.find(m => m.isDefault) || MODELS[0]);
     const [isTyping, setIsTyping] = useState(false);
-    
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
         maxHeight: 200,
@@ -62,31 +71,93 @@ export function VercelV0Chat() {
         scrollToBottom();
     }, [messages, isTyping]);
 
-    const handleSendMessage = () => {
-        if (!value.trim()) return;
+    // Load messages when activeSessionId changes
+    useEffect(() => {
+        if (activeSessionId) {
+            setCurrentSessionId(activeSessionId);
+            loadSessionMessages(activeSessionId);
+        } else if (activeSessionId === null) {
+            // New chat
+            setCurrentSessionId(null);
+            setMessages([]);
+        }
+    }, [activeSessionId]);
 
-        const userMsg: Message = {
-            id: Date.now().toString(),
+    const loadSessionMessages = async (sessionId: string) => {
+        try {
+            const msgs = await chatService.getMessagesBySession(sessionId);
+            setMessages(msgs.map(m => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                model: m.model || undefined,
+            })));
+        } catch (err) {
+            console.error('Error loading messages:', err);
+        }
+    };
+
+    const handleSendMessage = async () => {
+        if (!value.trim() || !user) return;
+
+        const userContent = value.trim();
+        const userId = user.id;
+
+        // Optimistic UI update
+        const tempUserMsg: Message = {
+            id: `temp-${Date.now()}`,
             role: "user",
-            content: value.trim(),
+            content: userContent,
         };
-
-        setMessages(prev => [...prev, userMsg]);
+        setMessages(prev => [...prev, tempUserMsg]);
         setValue("");
         adjustHeight(true);
         setIsTyping(true);
 
-        // Simulate AI response
-        setTimeout(() => {
-            const aiMsg: Message = {
-                id: (Date.now() + 1).toString(),
-                role: "assistant",
-                model: selectedModel.name,
-                content: `¡Hola! Soy Archie. He recibido tu mensaje: "${userMsg.content}". Estoy aquí para ayudarte con lo que necesites, ya sea matemáticas, programación o cualquier otro tema.`,
-            };
-            setMessages(prev => [...prev, aiMsg]);
+        try {
+            let sessionId = currentSessionId;
+
+            // Create new session if needed
+            if (!sessionId) {
+                const title = userContent.slice(0, 60) + (userContent.length > 60 ? '...' : '');
+                const session = await chatService.createSession(userId, title, selectedModel.id);
+                sessionId = session.id;
+                setCurrentSessionId(sessionId);
+                onSessionCreated?.(sessionId);
+            }
+
+            // Send to webhook and save
+            const { userMsg, assistantMsg } = await chatService.sendMessage(
+                sessionId,
+                userId,
+                userContent,
+                selectedModel.id
+            );
+
+            // Replace temp message with real ones
+            setMessages(prev => {
+                const withoutTemp = prev.filter(m => m.id !== tempUserMsg.id);
+                return [
+                    ...withoutTemp,
+                    { id: userMsg.id, role: 'user' as const, content: userMsg.content },
+                    { id: assistantMsg.id, role: 'assistant' as const, content: assistantMsg.content, model: selectedModel.name },
+                ];
+            });
+        } catch (err) {
+            console.error('Error sending message:', err);
+            // Show error message
+            setMessages(prev => [
+                ...prev,
+                {
+                    id: `error-${Date.now()}`,
+                    role: 'assistant',
+                    content: 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.',
+                    model: selectedModel.name,
+                },
+            ]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -117,12 +188,12 @@ export function VercelV0Chat() {
 
                             <div className={cn(
                                 "max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm md:text-base transition-all",
-                                msg.role === "user" 
-                                    ? "bg-[#2d2d2d] text-white rounded-tr-none shadow-sm" 
+                                msg.role === "user"
+                                    ? "bg-[#2d2d2d] text-white rounded-tr-none shadow-sm"
                                     : "bg-transparent text-inherit"
                             )}>
                                 <div className={cn(
-                                    "leading-relaxed",
+                                    "leading-relaxed whitespace-pre-wrap",
                                     msg.role === "assistant" ? (theme === 'dark' ? "text-gray-200" : "text-gray-800") : ""
                                 )}>
                                     {msg.content}
@@ -152,7 +223,7 @@ export function VercelV0Chat() {
                     )}>
                         ¿En qué te puedo ayudar hoy?
                     </h1>
-                    
+
                     <div className="flex items-center justify-center gap-2 md:gap-3 flex-wrap max-w-2xl">
                         <ActionButton
                             icon={<Calculator className="w-4 h-4" />}
@@ -255,7 +326,7 @@ export function VercelV0Chat() {
                                 <Paperclip className="w-5 h-5" />
                             </button>
                         </div>
-                        
+
                         <div className="flex items-center gap-2">
                              <button
                                 onClick={handleSendMessage}
@@ -282,7 +353,7 @@ function ReasoningBlock({ reasoning, theme }: { reasoning: string, theme: string
     const [isOpen, setIsOpen] = useState(false);
     return (
         <div className="mb-4">
-            <button 
+            <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={cn(
                     "flex items-center gap-2 text-xs font-bold transition-all py-1.5 px-3 rounded-lg border",

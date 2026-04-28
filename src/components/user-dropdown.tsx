@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar";
 import { Badge } from "@/components/badge";
@@ -12,6 +12,9 @@ import {
 } from "@/components/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { Icon } from "@iconify/react";
+import { useTheme } from "@/context/ThemeContext";
+import { useAuth } from "@/context/AuthContext";
+import { getRoleLabel } from "@/services/roleService";
 
 const MENU_ITEMS = {
   profile: [
@@ -93,37 +96,39 @@ function MenuItem({
   );
 }
 
-import { useTheme } from "@/context/ThemeContext";
-
 export function UserDropdown({
-  user = {
-    name: "Usuario Archie",
-    username: "@usuario",
-    avatar: "",
-    status: "online",
-  },
   onAction,
   onOpenProfile,
   promoDiscount = "20% desc.",
 }: {
-  user?: { name: string; username: string; avatar: string; status: string };
   onAction?: (action: string) => void;
   onOpenProfile?: () => void;
   promoDiscount?: string;
 }) {
   const navigate = useNavigate();
   const { toggleTheme } = useTheme();
+  const { user, profile, signOut } = useAuth();
 
-  const initials = getInitials(user.name);
-  const statusColor = STATUS_COLOR[user.status.toLowerCase()] ?? STATUS_COLOR.online;
+  // Derive display data from auth context
+  const displayName = profile?.full_name || user?.profile?.name || user?.email?.split('@')[0] || 'Usuario';
+  const displayEmail = user?.email || '';
+  const avatarUrl = user?.profile?.avatar_url || '';
+  const initials = getInitials(displayName);
+  const roleLabel = profile?.role ? getRoleLabel(profile.role) : 'Free';
 
-  const handleAction = (action: string) => {
+  const handleAction = async (action: string) => {
     if (action === "upgrade") {
       navigate("/#pricing");
       return;
     }
     if (action === "logout") {
-      navigate("/login");
+      try {
+        await signOut();
+        navigate("/login");
+      } catch (err) {
+        console.error('Logout error:', err);
+        navigate("/login");
+      }
       return;
     }
     if (action === "appearance") {
@@ -143,7 +148,7 @@ export function UserDropdown({
       <DropdownMenuTrigger asChild>
         <button className="relative outline-none group">
           <Avatar className="cursor-pointer size-9 border border-white/20 group-hover:ring-2 group-hover:ring-white/20 transition-all">
-            {user.avatar && <img src={user.avatar} alt={user.name} className="aspect-square h-full w-full object-cover rounded-full" />}
+            {avatarUrl && <img src={avatarUrl} alt={displayName} className="aspect-square h-full w-full object-cover rounded-full" />}
             <AvatarFallback className="bg-[#0066cc] text-white text-sm font-bold">
               {initials}
             </AvatarFallback>
@@ -162,22 +167,24 @@ export function UserDropdown({
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10">
           <Avatar className="size-10 border border-white/10">
-            {user.avatar && <img src={user.avatar} alt={user.name} className="aspect-square h-full w-full object-cover rounded-full" />}
+            {avatarUrl && <img src={avatarUrl} alt={displayName} className="aspect-square h-full w-full object-cover rounded-full" />}
             <AvatarFallback className="bg-[#0066cc] text-white text-sm font-bold">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-white truncate">{user.name}</p>
-            <p className="text-xs text-gray-400 truncate">{user.username}</p>
+            <p className="text-sm font-semibold text-white truncate">{displayName}</p>
+            <p className="text-xs text-gray-400 truncate">{displayEmail}</p>
           </div>
           <Badge
             className={cn(
               "border text-[10px] px-1.5 py-0.5 rounded-full capitalize font-medium",
-              statusColor
+              profile?.role === 'superadmin' ? "text-red-400 bg-red-900/30 border-red-500/50" :
+              profile?.role === 'pro' ? "text-blue-400 bg-blue-900/30 border-blue-500/50" :
+              "text-green-400 bg-green-900/30 border-green-500/50"
             )}
           >
-            {user.status === "online" ? "en línea" : user.status === "busy" ? "ocupado" : "desconectado"}
+            {roleLabel}
           </Badge>
         </div>
 
@@ -191,14 +198,17 @@ export function UserDropdown({
 
           <DropdownMenuSeparator className="my-1.5 bg-white/10" />
 
-          {/* Premium */}
-          <DropdownMenuGroup>
-            {MENU_ITEMS.premium.map((item, i) => (
-              <MenuItem key={i} item={item} onAction={handleAction} promoDiscount={promoDiscount} />
-            ))}
-          </DropdownMenuGroup>
-
-          <DropdownMenuSeparator className="my-1.5 bg-white/10" />
+          {/* Premium - hide for pro/superadmin */}
+          {profile?.role !== 'pro' && profile?.role !== 'superadmin' && (
+            <>
+              <DropdownMenuGroup>
+                {MENU_ITEMS.premium.map((item, i) => (
+                  <MenuItem key={i} item={item} onAction={handleAction} promoDiscount={promoDiscount} />
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="my-1.5 bg-white/10" />
+            </>
+          )}
 
           {/* Soporte */}
           <DropdownMenuGroup>

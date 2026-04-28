@@ -33,6 +33,8 @@ const partnerLogos = [
 import { Routes, Route } from 'react-router-dom';
 import { AuthPage } from '@/components/AuthPage';
 import { ChatPage } from '@/components/ChatPage';
+import { ResetPasswordPage } from '@/components/ResetPasswordPage';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 function LandingPage() {
   return (
@@ -85,7 +87,15 @@ function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<AuthPage />} />
-      <Route path="/chat" element={<ChatPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <ChatPage />
+          </ProtectedRoute>
+        }
+      />
     </Routes>
   )
 }

@@ -172,3 +172,40 @@ export async function setAuthProfile(profile: Record<string, unknown>) {
   if (error) throw error;
   return data;
 }
+
+// ─── Update Name (DB + Auth) ────────────────────────────────────────
+
+export async function updateUserName(userId: string, newName: string) {
+  // Update the auth profile name
+  await setAuthProfile({ name: newName });
+
+  // Update the DB profile
+  const updated = await updateUserProfile(userId, { full_name: newName });
+  return updated;
+}
+
+// ─── Update Password (authenticated) ────────────────────────────────
+
+export async function updatePassword(
+  currentPassword: string,
+  newPassword: string
+) {
+  // Re-authenticate with current password to verify identity
+  const currentUser = await getCurrentUser();
+  if (!currentUser?.email) throw new Error('No se encontró el usuario autenticado.');
+
+  // Verify the current password by signing in again
+  const { error: verifyError } = await insforge.auth.signInWithPassword({
+    email: currentUser.email,
+    password: currentPassword,
+  });
+  if (verifyError) throw new Error('La contraseña actual es incorrecta.');
+
+  // Now update to the new password
+  const { data, error } = await insforge.auth.resetPassword({
+    newPassword,
+    otp: '', // empty — uses the active session token
+  });
+  if (error) throw error;
+  return data;
+}

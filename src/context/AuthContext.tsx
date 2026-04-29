@@ -22,6 +22,8 @@ interface AuthContextType {
   signInWithGitHub: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  updateName: (newName: string) => Promise<void>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -113,6 +115,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
   };
 
+  const updateName = async (newName: string) => {
+    if (!user) throw new Error('No autenticado.');
+    await authService.updateUserName(user.id, newName);
+    // Refresh local state
+    const updatedProfile = await authService.getUserProfile(user.id);
+    setProfile(updatedProfile);
+    // Also update the user object's display name
+    setUser(prev => prev ? { ...prev, profile: { ...prev.profile, name: newName } } : prev);
+  };
+
+  const updatePasswordFn = async (currentPassword: string, newPassword: string) => {
+    await authService.updatePassword(currentPassword, newPassword);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -126,6 +142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signInWithGitHub,
         signOut: signOutFn,
         refreshProfile,
+        updateName,
+        updatePassword: updatePasswordFn,
       }}
     >
       {children}

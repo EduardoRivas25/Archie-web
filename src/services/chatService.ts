@@ -159,6 +159,59 @@ export async function sendMessage(
   return { userMsg, assistantMsg };
 }
 
+// ─── Progressive Rendering Helpers ──────────────────────────────────
+
+/**
+ * Sends user content to the webhook and returns the full response text.
+ * Also saves the user message to the DB.
+ */
+export async function sendToWebhookOnly(
+  sessionId: string,
+  userId: string,
+  content: string,
+  model: string = 'pro'
+): Promise<{ userMsg: ChatMessage; assistantContent: string }> {
+  // 1. Save user message
+  const userMsg = await saveMessage(sessionId, userId, 'user', content);
+
+  // 2. Send to n8n webhook
+  let assistantContent = 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.';
+
+  try {
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: content,
+        sessionId,
+        userId,
+        model,
+      }),
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      assistantContent = json.respuesta || json.response || json.output || 'Sin respuesta del servidor.';
+    }
+  } catch (err) {
+    console.error('Webhook error:', err);
+  }
+
+  return { userMsg, assistantContent };
+}
+
+/**
+ * Saves the assistant response to the DB after progressive rendering is complete.
+ */
+export async function saveAssistantMessage(
+  sessionId: string,
+  userId: string,
+  content: string,
+  model?: string
+): Promise<ChatMessage> {
+  return saveMessage(sessionId, userId, 'assistant', content, model);
+}
+
 // ─── Group by Date ───────────────────────────────────────────────────
 
 export function groupSessionsByDate(sessions: ChatSession[]): Record<string, ChatSession[]> {

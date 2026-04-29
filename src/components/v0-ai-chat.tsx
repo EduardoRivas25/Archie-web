@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { Textarea } from "@/components/textarea";
 import { cn } from "@/lib/utils";
 import {
@@ -15,7 +15,9 @@ import {
     Star,
     Check,
     ChevronRight,
-    Sparkles
+    Sparkles,
+    Copy,
+    CheckCheck
 } from "lucide-react";
 import archieLogo from "@/assets/Archie logo blanco.png";
 import { useTheme } from "@/context/ThemeContext";
@@ -27,6 +29,10 @@ import {
     DropdownMenuTrigger,
 } from "@/components/dropdown-menu";
 import * as chatService from "@/services/chatService";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface Message {
     id: string;
@@ -54,7 +60,11 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
     const [messages, setMessages] = useState<Message[]>([]);
     const [selectedModel, setSelectedModel] = useState(MODELS.find(m => m.isDefault) || MODELS[0]);
     const [isTyping, setIsTyping] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [streamingMsgId, setStreamingMsgId] = useState<string | null>(null);
+
+    const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const { textareaRef, adjustHeight } = useAutoResizeTextarea({
         minHeight: 60,
@@ -69,15 +79,37 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
 
     useEffect(() => {
         scrollToBottom();
-    }, [messages, isTyping]);
+    }, [messages, isTyping, isStreaming]);
+
+    // Cleanup streaming interval on unmount
+    useEffect(() => {
+        return () => {
+            if (streamIntervalRef.current) {
+                clearInterval(streamIntervalRef.current);
+            }
+        };
+    }, []);
 
     // Load messages when activeSessionId changes
     useEffect(() => {
         if (activeSessionId) {
+            // Stop any in-progress streaming
+            if (streamIntervalRef.current) {
+                clearInterval(streamIntervalRef.current);
+                streamIntervalRef.current = null;
+            }
+            setIsStreaming(false);
+            setStreamingMsgId(null);
             setCurrentSessionId(activeSessionId);
             loadSessionMessages(activeSessionId);
         } else if (activeSessionId === null) {
             // New chat
+            if (streamIntervalRef.current) {
+                clearInterval(streamIntervalRef.current);
+                streamIntervalRef.current = null;
+            }
+            setIsStreaming(false);
+            setStreamingMsgId(null);
             setCurrentSessionId(null);
             setMessages([]);
         }
@@ -97,8 +129,72 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
         }
     };
 
+    /**
+     * Progressive rendering: reveals text word-by-word with adaptive speed.
+     * Longer texts render faster so the user doesn't wait forever.
+     */
+    const startProgressiveRendering = (
+        fullText: string,
+        msgId: string,
+        sessionId: string,
+        userId: string,
+        model: string
+    ) => {
+        // Split into "words" (preserving whitespace/newlines as separate tokens)
+        const tokens = fullText.match(/\S+|\s+/g) || [fullText];
+        let tokenIndex = 0;
+        setIsStreaming(true);
+        setStreamingMsgId(msgId);
+
+        // Adaptive speed: longer texts → more words per tick
+        const totalLen = fullText.length;
+        const TICK_MS = 20; // interval speed in ms
+        // Base words per tick scales with length
+        const wordsPerTick = totalLen > 2000 ? 6
+            : totalLen > 1000 ? 4
+            : totalLen > 500 ? 3
+            : totalLen > 200 ? 2
+            : 1;
+
+        streamIntervalRef.current = setInterval(() => {
+            // Advance by wordsPerTick tokens, but also consume any trailing whitespace
+            let advance = wordsPerTick;
+            while (advance > 0 && tokenIndex < tokens.length) {
+                const token = tokens[tokenIndex];
+                tokenIndex++;
+                // Whitespace tokens don't count toward our word budget
+                if (token.trim().length > 0) {
+                    advance--;
+                }
+            }
+
+            const currentText = tokens.slice(0, tokenIndex).join('');
+
+            setMessages(prev =>
+                prev.map(m =>
+                    m.id === msgId ? { ...m, content: currentText } : m
+                )
+            );
+
+            // Done streaming
+            if (tokenIndex >= tokens.length) {
+                if (streamIntervalRef.current) {
+                    clearInterval(streamIntervalRef.current);
+                    streamIntervalRef.current = null;
+                }
+                setIsStreaming(false);
+                setStreamingMsgId(null);
+
+                // Save the complete assistant message to DB (fire-and-forget)
+                chatService.saveAssistantMessage(sessionId, userId, fullText, model).catch(err => {
+                    console.error('Error saving assistant message:', err);
+                });
+            }
+        }, TICK_MS);
+    };
+
     const handleSendMessage = async () => {
-        if (!value.trim() || !user) return;
+        if (!value.trim() || !user || isStreaming) return;
 
         const userContent = value.trim();
         const userId = user.id;
@@ -126,26 +222,38 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                 onSessionCreated?.(sessionId);
             }
 
-            // Send to webhook and save
-            const { userMsg, assistantMsg } = await chatService.sendMessage(
+            // Send to webhook — get full response text without saving assistant msg yet
+            const { userMsg, assistantContent } = await chatService.sendToWebhookOnly(
                 sessionId,
                 userId,
                 userContent,
                 selectedModel.id
             );
 
-            // Replace temp message with real ones
+            const streamMsgId = `stream-${Date.now()}`;
+
+            // Replace temp user message with real one, and add empty assistant message
             setMessages(prev => {
                 const withoutTemp = prev.filter(m => m.id !== tempUserMsg.id);
                 return [
                     ...withoutTemp,
                     { id: userMsg.id, role: 'user' as const, content: userMsg.content },
-                    { id: assistantMsg.id, role: 'assistant' as const, content: assistantMsg.content, model: selectedModel.name },
+                    { id: streamMsgId, role: 'assistant' as const, content: '', model: selectedModel.name },
                 ];
             });
+
+            setIsTyping(false);
+
+            // Start progressive rendering of the assistant response
+            startProgressiveRendering(
+                assistantContent,
+                streamMsgId,
+                sessionId,
+                userId,
+                selectedModel.id
+            );
         } catch (err) {
             console.error('Error sending message:', err);
-            // Show error message
             setMessages(prev => [
                 ...prev,
                 {
@@ -155,7 +263,6 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                     model: selectedModel.name,
                 },
             ]);
-        } finally {
             setIsTyping(false);
         }
     };
@@ -192,12 +299,21 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                                     ? "bg-[#2d2d2d] text-white rounded-tr-none shadow-sm"
                                     : "bg-transparent text-inherit"
                             )}>
-                                <div className={cn(
-                                    "leading-relaxed whitespace-pre-wrap",
-                                    msg.role === "assistant" ? (theme === 'dark' ? "text-gray-200" : "text-gray-800") : ""
-                                )}>
-                                    {msg.content}
-                                </div>
+                                {msg.role === "assistant" ? (
+                                    <div className={cn(
+                                        "markdown-prose",
+                                        theme === 'dark' ? "text-gray-200" : "text-gray-800 markdown-prose-light"
+                                    )}>
+                                        <MarkdownRenderer content={msg.content} theme={theme} />
+                                        {isStreaming && msg.id === streamingMsgId && (
+                                            <span className="streaming-cursor" />
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="leading-relaxed whitespace-pre-wrap">
+                                        {msg.content}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -330,10 +446,10 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                         <div className="flex items-center gap-2">
                              <button
                                 onClick={handleSendMessage}
-                                disabled={!value.trim() || isTyping}
+                                disabled={!value.trim() || isTyping || isStreaming}
                                 className={cn(
                                     "p-2.5 rounded-2xl transition-all flex items-center justify-center",
-                                    value.trim() && !isTyping
+                                    value.trim() && !isTyping && !isStreaming
                                         ? "bg-[#0066cc] text-white shadow-lg shadow-blue-500/20"
                                         : theme === 'dark' ? "text-gray-600 bg-white/5" : "text-gray-400 bg-gray-100"
                                 )}
@@ -346,6 +462,91 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                 <p className="text-[10px] text-center mt-3 opacity-40 font-medium">Archie puede cometer errores. Considera verificar la información importante.</p>
             </div>
         </div>
+    );
+}
+
+function CodeBlock({ language, children }: { language: string; children: string }) {
+    const [copied, setCopied] = useState(false);
+    const lineCount = children.split('\n').length;
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(children).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        });
+    };
+
+    return (
+        <div className="code-block-wrapper">
+            <div className="code-block-header">
+                <div className="code-block-lang">
+                    <span className="code-lang-dot" />
+                    <span>{language || 'code'}</span>
+                </div>
+                <button onClick={handleCopy} className="code-copy-btn">
+                    {copied ? (
+                        <span className="flex items-center gap-1.5"><CheckCheck className="w-3.5 h-3.5" /> Copiado</span>
+                    ) : (
+                        <span className="flex items-center gap-1.5"><Copy className="w-3.5 h-3.5" /> Copiar</span>
+                    )}
+                </button>
+            </div>
+            <SyntaxHighlighter
+                language={language || 'text'}
+                style={vscDarkPlus}
+                customStyle={{
+                    margin: 0,
+                    background: '#1e1e1e',
+                    borderRadius: 0,
+                    padding: '1em 1em 1em 0.5em',
+                    fontSize: '0.875em',
+                    lineHeight: '1.7',
+                }}
+                showLineNumbers={lineCount > 1}
+                lineNumberStyle={{
+                    minWidth: '2.5em',
+                    paddingRight: '1em',
+                    color: '#858585',
+                    fontStyle: 'normal',
+                    userSelect: 'none',
+                }}
+                wrapLongLines
+            >
+                {children.trimEnd()}
+            </SyntaxHighlighter>
+        </div>
+    );
+}
+
+function MarkdownRenderer({ content, theme }: { content: string; theme: string }) {
+    if (!content) return null;
+
+    return (
+        <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+                code({ node, className, children, ...props }: any) {
+                    const match = /language-(\w+)/.exec(className || '');
+                    const isInline = !match && !className;
+                    
+                    if (isInline) {
+                        return <code className={className} {...props}>{children}</code>;
+                    }
+
+                    return (
+                        <CodeBlock language={match ? match[1] : ''}>
+                            {String(children).replace(/\n$/, '')}
+                        </CodeBlock>
+                    );
+                },
+                pre({ children }: any) {
+                    // Let CodeBlock handle the wrapping
+                    return <>{children}</>;
+                },
+            }}
+        >
+            {content}
+        </ReactMarkdown>
     );
 }
 

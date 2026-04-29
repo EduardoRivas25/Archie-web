@@ -43,3 +43,245 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* ─── Markdown Prose Styles (Chat Messages) ─────────────────────────── */
+.markdown-prose {
+  line-height: 1.75;
+  word-break: break-word;
+}
+
+.markdown-prose h1 {
+  font-size: 1.5em;
+  font-weight: 700;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+.markdown-prose h2 {
+  font-size: 1.3em;
+  font-weight: 700;
+  margin-top: 1.1em;
+  margin-bottom: 0.4em;
+  line-height: 1.35;
+}
+
+.markdown-prose h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin-top: 1em;
+  margin-bottom: 0.3em;
+}
+
+.markdown-prose h1:first-child,
+.markdown-prose h2:first-child,
+.markdown-prose h3:first-child {
+  margin-top: 0;
+}
+
+.markdown-prose p {
+  margin-top: 0.6em;
+  margin-bottom: 0.6em;
+}
+
+.markdown-prose p:first-child {
+  margin-top: 0;
+}
+
+.markdown-prose p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-prose strong {
+  font-weight: 700;
+  color: inherit;
+}
+
+.markdown-prose em {
+  font-style: italic;
+}
+
+.markdown-prose ul {
+  list-style-type: disc;
+  padding-left: 1.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-prose ol {
+  list-style-type: decimal;
+  padding-left: 1.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-prose li {
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+}
+
+.markdown-prose li > p {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+}
+
+.markdown-prose a {
+  color: #60a5fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-prose a:hover {
+  color: #93bbfc;
+}
+
+.markdown-prose blockquote {
+  border-left: 3px solid #3b82f6;
+  padding-left: 1em;
+  margin: 0.8em 0;
+  opacity: 0.85;
+  font-style: italic;
+}
+
+.markdown-prose hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin: 1.2em 0;
+}
+
+/* Inline code */
+.markdown-prose code:not(pre code) {
+  background: #2d2d2d;
+  border: 1px solid #3c3c3c;
+  border-radius: 4px;
+  padding: 0.15em 0.45em;
+  font-size: 0.88em;
+  color: #d4d4d4;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+}
+
+/* Code block wrapper — VS Code style */
+.markdown-prose .code-block-wrapper {
+  margin: 1em 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #2d2d2d;
+  background: #1e1e1e;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.markdown-prose .code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55em 1em;
+  background: #252526;
+  border-bottom: 1px solid #3c3c3c;
+  font-size: 0.8em;
+  color: #cccccc;
+}
+
+.markdown-prose .code-block-lang {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.markdown-prose .code-lang-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #007acc;
+  flex-shrink: 0;
+}
+
+.markdown-prose .code-copy-btn {
+  font-size: 0.85em;
+  padding: 0.25em 0.7em;
+  border-radius: 4px;
+  background: transparent;
+  color: #858585;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-weight: 500;
+}
+
+.markdown-prose .code-copy-btn:hover {
+  background: #3c3c3c;
+  color: #cccccc;
+  border-color: #4c4c4c;
+}
+
+.markdown-prose pre {
+  margin: 0 !important;
+  border-radius: 0 !important;
+  padding: 1em 1em 1em 0.5em !important;
+  overflow-x: auto;
+  font-size: 0.875em !important;
+  line-height: 1.7 !important;
+  background: #1e1e1e !important;
+}
+
+.markdown-prose pre code {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace !important;
+  color: #d4d4d4 !important;
+}
+
+/* Line number gutter — VS Code style */
+.markdown-prose pre span.linenumber {
+  color: #858585 !important;
+  min-width: 2.5em !important;
+  padding-right: 1em !important;
+  user-select: none;
+}
+
+/* Light theme adjustments */
+.markdown-prose-light code:not(pre code) {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.markdown-prose-light a {
+  color: #2563eb;
+}
+
+.markdown-prose-light a:hover {
+  color: #1d4ed8;
+}
+
+.markdown-prose-light hr {
+  border-top-color: rgba(0, 0, 0, 0.1);
+}
+
+.markdown-prose-light .code-block-wrapper {
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.markdown-prose-light .code-block-header {
+  background: rgba(0, 0, 0, 0.03);
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+  color: rgba(0, 0, 0, 0.5);
+}
+
+/* Cursor blink animation for streaming */
+@keyframes blink-cursor {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  background-color: #60a5fa;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink-cursor 0.8s step-end infinite;
+}

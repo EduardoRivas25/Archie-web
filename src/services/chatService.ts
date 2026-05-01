@@ -212,6 +212,52 @@ export async function saveAssistantMessage(
   return saveMessage(sessionId, userId, 'assistant', content, model);
 }
 
+// ─── Expert System ───────────────────────────────────────────────────
+
+/**
+ * Sends a message through the expert system API (/api/chat).
+ * The API tries to resolve with deterministic rules first, then falls back
+ * to the n8n webhook if no rule matches.
+ *
+ * Drop-in replacement for sendToWebhookOnly() — same signature and return type.
+ */
+export async function sendToExpertSystem(
+  sessionId: string,
+  userId: string,
+  content: string,
+  model: string = 'pro'
+): Promise<{ userMsg: ChatMessage; assistantContent: string }> {
+  // 1. Save user message to DB
+  const userMsg = await saveMessage(sessionId, userId, 'user', content);
+
+  // 2. Call the expert system serverless function
+  let assistantContent = 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.';
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: content, sessionId, userId, model }),
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      assistantContent = json.respuesta || 'Sin respuesta.';
+
+      // Log source for debugging (expert_system vs webhook_fallback)
+      if (json.source) {
+        console.info(`[chatService] Response source: ${json.source}${json.rule ? ` (rule: ${json.rule})` : ''}`);
+      }
+    } else {
+      console.error('[chatService] Expert system API error:', response.status, await response.text());
+    }
+  } catch (err) {
+    console.error('[chatService] Expert system fetch error:', err);
+  }
+
+  return { userMsg, assistantContent };
+}
+
 // ─── Group by Date ───────────────────────────────────────────────────
 
 export function groupSessionsByDate(sessions: ChatSession[]): Record<string, ChatSession[]> {

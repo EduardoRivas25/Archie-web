@@ -11,5 +11,15 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-  base: '/'
+  base: '/',
+  server: {
+    proxy: {
+      // Forward /api/* to the local Vercel functions server
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
+  },
 })
+

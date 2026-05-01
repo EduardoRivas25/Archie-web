@@ -233,14 +233,22 @@ function runInferenceEngine(facts: Fact[], rules: ExpertRule[]): InferenceResult
 // ─── DB Operations ────────────────────────────────────────────────────────────
 
 async function loadActiveRules(): Promise<ExpertRule[]> {
-  const { data, error } = await getInsforge().database
-    .from('expert_rules')
-    .select()
-    .eq('is_active', true)
-    .order('priority', { ascending: false });
+  try {
+    const { data, error } = await getInsforge().database
+      .from('expert_rules')
+      .select()
+      .eq('is_active', true)
+      .order('priority', { ascending: false });
 
-  if (error) throw error;
-  return (data ?? []) as ExpertRule[];
+    if (error) {
+      console.warn('[ExpertSystem] Error loading rules:', error);
+      return [];
+    }
+    return (data ?? []) as ExpertRule[];
+  } catch (err) {
+    console.warn('[ExpertSystem] Failed to load rules (table may not exist):', err);
+    return [];
+  }
 }
 
 async function getProfile(userId: string): Promise<Record<string, unknown> | null> {
@@ -379,8 +387,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[ExpertSystem] Handler error:', errMsg);
+    let errMsg = 'Unknown error';
+    if (err instanceof Error) {
+      errMsg = err.message;
+    } else if (typeof err === 'string') {
+      errMsg = err;
+    } else if (err && typeof err === 'object') {
+      errMsg = JSON.stringify(err);
+    }
+    console.error('[ExpertSystem] Handler error:', errMsg, err);
     return res.status(500).json({ error: 'Internal server error', details: errMsg });
   }
 }

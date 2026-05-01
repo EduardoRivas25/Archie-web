@@ -201,6 +201,46 @@ export async function sendToWebhookOnly(
 }
 
 /**
+ * Sends user content to the expert system API (/api/chat).
+ * The API runs a forward-chaining inference engine and falls back to the
+ * n8n webhook automatically if no rule matches.
+ */
+export async function sendToExpertSystem(
+  sessionId: string,
+  userId: string,
+  content: string,
+  model: string = 'pro'
+): Promise<{ userMsg: ChatMessage; assistantContent: string }> {
+  // 1. Save user message
+  const userMsg = await saveMessage(sessionId, userId, 'user', content);
+
+  // 2. Send to expert system API
+  let assistantContent = 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.';
+
+  try {
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: content,
+        sessionId,
+        userId,
+        model,
+      }),
+    });
+
+    if (response.ok) {
+      const json = await response.json();
+      assistantContent = json.respuesta || json.response || json.output || 'Sin respuesta del servidor.';
+    }
+  } catch (err) {
+    console.error('Expert system error:', err);
+  }
+
+  return { userMsg, assistantContent };
+}
+
+/**
  * Saves the assistant response to the DB after progressive rendering is complete.
  */
 export async function saveAssistantMessage(

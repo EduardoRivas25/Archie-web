@@ -223,7 +223,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
             }
 
             // Send to webhook — get full response text without saving assistant msg yet
-            const { userMsg, assistantContent } = await chatService.sendToWebhookOnly(
+            const { userMsg, assistantContent } = await chatService.sendToExpertSystem(
                 sessionId,
                 userId,
                 userContent,

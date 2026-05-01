@@ -152,9 +152,9 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
         // Base words per tick scales with length
         const wordsPerTick = totalLen > 2000 ? 6
             : totalLen > 1000 ? 4
-            : totalLen > 500 ? 3
-            : totalLen > 200 ? 2
-            : 1;
+                : totalLen > 500 ? 3
+                    : totalLen > 200 ? 2
+                        : 1;
 
         streamIntervalRef.current = setInterval(() => {
             // Advance by wordsPerTick tokens, but also consume any trailing whitespace
@@ -223,7 +223,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
             }
 
             // Send to webhook — get full response text without saving assistant msg yet
-            const { userMsg, assistantContent } = await chatService.sendToExpertSystem(
+            const { userMsg, assistantContent } = await chatService.sendToWebhookOnly(
                 sessionId,
                 userId,
                 userContent,
@@ -444,7 +444,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                         </div>
 
                         <div className="flex items-center gap-2">
-                             <button
+                            <button
                                 onClick={handleSendMessage}
                                 disabled={!value.trim() || isTyping || isStreaming}
                                 className={cn(
@@ -528,7 +528,7 @@ function MarkdownRenderer({ content, theme }: { content: string; theme: string }
                 code({ node, className, children, ...props }: any) {
                     const match = /language-(\w+)/.exec(className || '');
                     const isInline = !match && !className;
-                    
+
                     if (isInline) {
                         return <code className={className} {...props}>{children}</code>;
                     }

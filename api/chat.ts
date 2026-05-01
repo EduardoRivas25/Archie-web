@@ -384,6 +384,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       respuesta: webhookResponse,
       source: 'webhook_fallback',
       facts: result.facts,
+      debug: {
+        rulesLoaded: rules.length,
+        ruleNames: rules.map(r => r.name),
+        matchedCount: result.matchedRules.length,
+        envCheck: {
+          hasInsforgeUrl: !!process.env.INSFORGE_URL,
+          hasAnonKey: !!process.env.INSFORGE_ANON_KEY,
+          hasWebhookUrl: !!process.env.CHAT_WEBHOOK_URL,
+        },
+      },
     });
 
   } catch (err: unknown) {

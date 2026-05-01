@@ -193,7 +193,29 @@ ON CONFLICT (name) DO UPDATE SET
 CREATE INDEX IF NOT EXISTS idx_expert_rules_active_priority
   ON expert_rules (is_active, priority DESC);
 
--- ─── 5. Verify ───────────────────────────────────────────────────────
+-- ─── 5. Enable RLS + allow public read on expert_rules ───────────────
+ALTER TABLE expert_rules ENABLE ROW LEVEL SECURITY;
+
+-- Allow anyone (anon key) to read active rules
+CREATE POLICY "Allow public read on expert_rules"
+  ON expert_rules
+  FOR SELECT
+  USING (true);
+
+-- Allow updating user_profiles (for interactions_count, topics_history)
+CREATE POLICY "Allow update own profile for expert system"
+  ON user_profiles
+  FOR UPDATE
+  USING (true)
+  WITH CHECK (true);
+
+-- Allow selecting user_profiles (for expert_level)
+CREATE POLICY "Allow read profiles for expert system"
+  ON user_profiles
+  FOR SELECT
+  USING (true);
+
+-- ─── 6. Verify ───────────────────────────────────────────────────────
 SELECT name, category, priority, is_active
 FROM expert_rules
 ORDER BY category, priority DESC;

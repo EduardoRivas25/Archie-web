@@ -40,12 +40,23 @@ interface InferenceResult {
   matchedRules: ExpertRule[];
 }
 
-// ─── Insforge Server Client ───────────────────────────────────────────────────
+// ─── Insforge Server Client (lazy — created on first request) ───────────────
 
-const insforge = createClient({
-  baseUrl: process.env.INSFORGE_URL!,
-  anonKey: process.env.INSFORGE_ANON_KEY!,
-});
+let _insforge: ReturnType<typeof createClient> | null = null;
+
+function getInsforge() {
+  if (!_insforge) {
+    const baseUrl = process.env.INSFORGE_URL;
+    const anonKey = process.env.INSFORGE_ANON_KEY;
+    if (!baseUrl || !anonKey) {
+      throw new Error(
+        `Missing env vars: ${!baseUrl ? 'INSFORGE_URL ' : ''}${!anonKey ? 'INSFORGE_ANON_KEY' : ''}`.trim()
+      );
+    }
+    _insforge = createClient({ baseUrl, anonKey });
+  }
+  return _insforge;
+}
 
 // ─── Keyword Dictionaries ─────────────────────────────────────────────────────
 
@@ -222,7 +233,7 @@ function runInferenceEngine(facts: Fact[], rules: ExpertRule[]): InferenceResult
 // ─── DB Operations ────────────────────────────────────────────────────────────
 
 async function loadActiveRules(): Promise<ExpertRule[]> {
-  const { data, error } = await insforge.database
+  const { data, error } = await getInsforge().database
     .from('expert_rules')
     .select()
     .eq('is_active', true)
@@ -233,7 +244,7 @@ async function loadActiveRules(): Promise<ExpertRule[]> {
 }
 
 async function getProfile(userId: string): Promise<Record<string, unknown> | null> {
-  const { data, error } = await insforge.database
+  const { data, error } = await getInsforge().database
     .from('user_profiles')
     .select()
     .eq('user_id', userId)
@@ -248,8 +259,8 @@ async function getProfile(userId: string): Promise<Record<string, unknown> | nul
 
 async function updateUserProgress(userId: string, facts: Fact[]): Promise<void> {
   try {
-    // Get current count first, then increment
-    const { data: profile } = await insforge.database
+    const db = getInsforge().database;
+    const { data: profile } = await db
       .from('user_profiles')
       .select('interactions_count, topics_history')
       .eq('user_id', userId)
@@ -263,7 +274,7 @@ async function updateUserProgress(userId: string, facts: Fact[]): Promise<void> 
       topicsHistory[topic] = (topicsHistory[topic] || 0) + 1;
     }
 
-    await insforge.database
+    await db
       .from('user_profiles')
       .update({
         interactions_count: currentCount + 1,
@@ -368,8 +379,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[ExpertSystem] Handler error:', message);
-    return res.status(500).json({ error: 'Internal server error', details: message });
+    const errMsg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[ExpertSystem] Handler error:', errMsg);
+    return res.status(500).json({ error: 'Internal server error', details: errMsg });
   }
 }

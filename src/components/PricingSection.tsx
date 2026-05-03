@@ -12,10 +12,8 @@ const archiePlans: [PriceTier, PriceTier, PriceTier] = [
     buttonLabel: 'Empezar Gratis',
     features: [
       { name: '15–20 respuestas al día', isIncluded: true },
-      { name: 'Modelos: Qwen 3.5, Gemini 2.5 Flash', isIncluded: true },
       { name: 'Explicaciones simples', isIncluded: true },
       { name: 'Chat estándar', isIncluded: true },
-      { name: 'Modelos Avanzados (Claude Opus, Gemini Pro)', isIncluded: false },
       { name: 'Modo Tutor (Paso a paso)', isIncluded: false },
     ],
   },
@@ -29,7 +27,6 @@ const archiePlans: [PriceTier, PriceTier, PriceTier] = [
     buttonLabel: 'Elegir Estudiante',
     features: [
       { name: '60–80 respuestas al día', isIncluded: true },
-      { name: '5 preguntas/día con Modelos Avanzados', isIncluded: true },
       { name: 'Explicaciones más detalladas', isIncluded: true },
       { name: 'Mejor adaptación al nivel', isIncluded: true },
       { name: 'Modo tutor (explicaciones paso a paso)', isIncluded: true },
@@ -46,7 +43,6 @@ const archiePlans: [PriceTier, PriceTier, PriceTier] = [
     buttonLabel: 'Hazte Pro',
     features: [
       { name: '150–300+ respuestas al día', isIncluded: true },
-      { name: 'Acceso completo a Modelos Avanzados', isIncluded: true },
       { name: 'Explicaciones profundas (nivel experto)', isIncluded: true },
       { name: 'Generación de ejercicios personalizados', isIncluded: true },
       { name: 'Modo tutor avanzado y Contexto largo', isIncluded: true },

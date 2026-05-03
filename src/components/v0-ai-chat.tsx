@@ -43,8 +43,8 @@ interface Message {
 }
 
 const MODELS = [
-    { id: "rapido", name: "Rápido", description: "Responde rápidamente", icon: Zap, color: "text-blue-400" },
-    { id: "pensar", name: "Pensar", description: "Resuelve problemas complejos", icon: Brain, color: "text-blue-500" },
+    { id: "facil", name: "Facil", description: "Responde de manera sencilla", icon: Zap, color: "text-blue-400" },
+    { id: "medio", name: "Medio", description: "Resuelve problemas de manera clara", icon: Brain, color: "text-blue-500" },
     { id: "pro", name: "Pro", description: "Matemáticas y programación avanzada", icon: Sparkles, color: "text-blue-600", isDefault: true },
 ];
 

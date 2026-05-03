@@ -13,8 +13,11 @@ interface ReglaExperta {
   nombre: string;
   categoria: string;
   condiciones: CondicionRegla[];
-  respuesta: string;
+  respuesta?: string;
   respuestaExperto?: string;
+  respuestaFacil?: string;
+  respuestaMedio?: string;
+  respuestaPro?: string;
   seguimiento?: string;
   prioridad: number;
 }
@@ -23,6 +26,7 @@ const PALABRAS_TEMA: Record<string, string[]> = {
   programming: ['programacion','codigo','funcion','variable','array','loop','bucle','for','while','if','else','clase','objeto','python','javascript','java','c++','typescript','html','css','react','algoritmo','recursion','closure','promise','async','api','git','debug'],
   math: ['matematicas','ecuacion','integral','derivada','limite','matriz','vector','trigonometria','seno','coseno','algebra','calculo','geometria','probabilidad','estadistica','logaritmo','exponencial','polinomio','factorial'],
   networking: ['red','redes','osi','tcp','ip','protocolo','router','switch','firewall','dns','http','https','puerto','subred','ethernet','wifi'],
+  conversational: ['hola', 'buenos', 'buenas', 'que tal', 'saludos', 'hey', 'gracias', 'agradezco', 'adios', 'chao', 'vemos', 'hasta luego', 'bye'],
 };
 
 const PALABRAS_SUBTEMA: Record<string, string[]> = {
@@ -40,6 +44,9 @@ const PALABRAS_SUBTEMA: Record<string, string[]> = {
   trigonometry: ['seno','coseno','tangente','trigonometria','angulo','radian','sen','cos','tan'],
   osi_model: ['osi','capas osi','modelo osi','siete capas','7 capas'],
   tcp_ip: ['tcp','udp','protocolo internet','ipv4','ipv6','handshake'],
+  greeting: ['hola', 'buenos', 'buenas', 'que tal', 'saludos', 'hey'],
+  thanks: ['gracias', 'agradezco', 'te lo agradezco', 'perfecto'],
+  goodbye: ['adios', 'chao', 'nos vemos', 'hasta luego', 'bye', 'pronto'],
 };
 
 const PALABRAS_INTENCION: Record<string, string[]> = {
@@ -101,15 +108,21 @@ function evaluarCondicion(c: CondicionRegla, hechos: Hecho[]): boolean {
 function ejecutarMotor(hechos: Hecho[], reglas: ReglaExperta[]): { coincidio: boolean; regla?: ReglaExperta; respuesta: string } {
   const coincidencias = reglas.filter(r => r.condiciones.every(c => evaluarCondicion(c, hechos)));
 
+  const nivelUsuario = hechos.find(h => h.clave === 'nivel')?.valor || 'medio';
+
   if (coincidencias.length === 0) {
-    return { coincidio: false, respuesta: '🤔 No tengo una respuesta específica para eso. Puedo ayudarte con **programación**, **matemáticas** y **redes**. ¿Podrías reformular tu pregunta?' };
+    let fallback = '🤔 No tengo una respuesta específica para eso. Puedo ayudarte con **programación**, **matemáticas** y **redes**. ¿Podrías reformular tu pregunta?';
+    if (nivelUsuario === 'facil') fallback = '🤔 Mmm, no estoy seguro de entenderte. Pero soy experto en cosas de programación, matemáticas y redes. ¿De qué te gustaría hablar?';
+    if (nivelUsuario === 'pro') fallback = '⚠️ Input no reconocido. Por favor provea un contexto técnico sobre programación algorítmica, matemáticas o arquitectura de redes.';
+    return { coincidio: false, respuesta: fallback };
   }
 
   const mejor = coincidencias.sort((a, b) => b.prioridad !== a.prioridad ? b.prioridad - a.prioridad : b.condiciones.length - a.condiciones.length)[0];
 
-  // Seleccionar respuesta segun nivel del usuario
-  const nivelUsuario = hechos.find(h => h.clave === 'nivel')?.valor;
-  let resp = (nivelUsuario === 'experto' && mejor.respuestaExperto) ? mejor.respuestaExperto : mejor.respuesta;
+  let resp = mejor.respuestaMedio || mejor.respuesta || 'Sin respuesta';
+  if (nivelUsuario === 'facil') resp = mejor.respuestaFacil || mejor.respuesta || 'Sin respuesta';
+  if (nivelUsuario === 'pro') resp = mejor.respuestaPro || mejor.respuestaExperto || mejor.respuesta || 'Sin respuesta';
+
   if (mejor.seguimiento) resp += `\n\n---\n💡 ${mejor.seguimiento}`;
 
   return { coincidio: true, regla: mejor, respuesta: resp };
@@ -117,6 +130,27 @@ function ejecutarMotor(hechos: Hecho[], reglas: ReglaExperta[]): { coincidio: bo
 
 // ─── Base de Conocimientos (Reglas) ─────────────────────────────
 const REGLAS: ReglaExperta[] = [
+  {
+    nombre: 'saludo', categoria: 'conversational', prioridad: 100,
+    condiciones: [ { hecho: 'subtema', operador: 'igual', valor: 'greeting' } ],
+    respuestaFacil: '¡Hola! Qué gusto saludarte 👋. Soy Archie, tu asistente virtual. ¿En qué te puedo ayudar de forma súper sencilla hoy?',
+    respuestaMedio: '¡Hola! Soy Archie, listo para ayudarte a resolver tus dudas con explicaciones claras. ¿Qué tienes en mente?',
+    respuestaPro: 'Saludos. Soy Archie. Estoy optimizado para resolver problemas avanzados de programación, matemáticas y redes. Inicializando sesión...',
+  },
+  {
+    nombre: 'despedida', categoria: 'conversational', prioridad: 100,
+    condiciones: [ { hecho: 'subtema', operador: 'igual', valor: 'goodbye' } ],
+    respuestaFacil: '¡Adiós! 👋 Cuídate mucho y vuelve pronto. Me encantó ayudarte.',
+    respuestaMedio: '¡Hasta luego! Si tienes más dudas después, aquí estaré.',
+    respuestaPro: 'Hasta la próxima. El sistema cerrará la sesión cuando estés listo. [Exit code 0]',
+  },
+  {
+    nombre: 'agradecimiento', categoria: 'conversational', prioridad: 100,
+    condiciones: [ { hecho: 'subtema', operador: 'igual', valor: 'thanks' } ],
+    respuestaFacil: '¡De nada! Es un placer inmenso poder ayudarte. ¡Pregúntame lo que quieras! ✨',
+    respuestaMedio: '¡Con gusto! Me alegra que la información te haya sido útil.',
+    respuestaPro: 'A tu disposición. Seguimos iterando sobre cualquier otro requerimiento que tengas.',
+  },
   {
     nombre: 'for_loop_beginner', categoria: 'programming', prioridad: 80,
     condiciones: [
@@ -244,10 +278,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { message } = req.body ?? {};
+    const { message, model } = req.body ?? {};
     if (!message) return res.status(400).json({ error: 'Missing message field' });
 
     const hechos = extraerHechos(message);
+
+    // Integramos el nivel basado en el `model` ("facil", "medio", "pro") provisto por la UI
+    if (model) {
+      const idx = hechos.findIndex(h => h.clave === 'nivel');
+      if (idx >= 0) hechos[idx].valor = model;
+      else hechos.push({ clave: 'nivel', valor: model });
+    }
+
     const resultado = ejecutarMotor(hechos, REGLAS);
 
     return res.status(200).json({

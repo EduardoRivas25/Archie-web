@@ -1,104 +1,87 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// ─── Types ────────────────────────────────────────────────────────
-interface Fact { key: string; value: string; }
+// ─── Tipos ────────────────────────────────────────────────────────
+interface Hecho { clave: string; valor: string; }
 
-interface RuleCondition {
-  fact: string;
-  operator: 'equals' | 'contains' | 'in' | 'not_equals';
-  value: string | string[];
+interface CondicionRegla {
+  hecho: string;
+  operador: 'igual' | 'contiene' | 'en' | 'no_igual';
+  valor: string | string[];
 }
 
-interface ExpertRule {
-  name: string;
-  category: string;
-  conditions: RuleCondition[];
-  response: string;
-  followUp?: string;
-  priority: number;
+interface ReglaExperta {
+  nombre: string;
+  categoria: string;
+  condiciones: CondicionRegla[];
+  respuesta: string;
+  respuestaExperto?: string;
+  seguimiento?: string;
+  prioridad: number;
 }
 
-// ─── Keyword Dictionaries ─────────────────────────────────────────
-const TOPIC_KW: Record<string, string[]> = {
-  programming: ['programacion','codigo','funcion','variable','array','loop','bucle','for','while','if','else','clase','objeto','python','javascript','java','c++','typescript','html','css','react','algoritmo','recursion','closure','promise','async','api','git','debug'],
-  math: ['matematicas','ecuacion','integral','derivada','limite','matriz','vector','trigonometria','seno','coseno','algebra','calculo','geometria','probabilidad','estadistica','logaritmo','exponencial','polinomio','factorial'],
-  networking: ['red','redes','osi','tcp','ip','protocolo','router','switch','firewall','dns','http','https','puerto','subred','ethernet','wifi'],
-};
 
-const SUBTOPIC_KW: Record<string, string[]> = {
-  loops: ['for','while','bucle','loop','iteracion','recorrer','repetir','ciclo'],
-  functions: ['funcion','function','def','return','parametro','argumento','metodo'],
-  arrays: ['array','arreglo','lista','list','push','pop','map','filter'],
-  conditionals: ['if','else','condicion','switch','ternario','condicional'],
-  oop: ['clase','class','objeto','herencia','polimorfismo','encapsulamiento','instancia'],
-  recursion: ['recursion','recursiva','recursivo','caso base','llamada recursiva'],
-  async_programming: ['async','await','promise','promesa','asincrono','callback','then','catch'],
-  derivatives: ['derivada','derivative','diferencial','dx','regla cadena','derivar'],
-  integrals: ['integral','antiderivada','area bajo curva','integracion','integrar'],
-  limits: ['limite','limit','tiende','lim','continuidad','infinito'],
-  algebra: ['ecuacion','despejar','factorizar','polinomio','sistema ecuaciones'],
-  trigonometry: ['seno','coseno','tangente','trigonometria','angulo','radian','sen','cos','tan'],
-  osi_model: ['osi','capas osi','modelo osi','siete capas','7 capas'],
-  tcp_ip: ['tcp','udp','protocolo internet','ipv4','ipv6','handshake'],
-};
 
-const INTENT_KW: Record<string, string[]> = {
-  explain: ['explica','explicame','que es','que son','como funciona','describe','definicion','define'],
-  solve: ['resuelve','calcula','encuentra','haz','resolveme','solucion','resolver'],
-  example: ['ejemplo','muestrame','demuestra','practica','ejercicio'],
-  compare: ['diferencia','comparar','vs','versus','mejor','cual es mejor'],
-};
-
-// ─── Fact Extractor ───────────────────────────────────────────────
-function normalize(s: string): string {
+// ─── Extractor de Hechos ──────────────────────────────────────────
+function normalizar(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function extractFacts(message: string): Fact[] {
-  const msg = normalize(message);
-  const facts: Fact[] = [];
-
-  for (const [t, kws] of Object.entries(TOPIC_KW)) {
-    if (kws.some(k => msg.includes(k))) { facts.push({ key: 'topic', value: t }); break; }
-  }
-  for (const [s, kws] of Object.entries(SUBTOPIC_KW)) {
-    if (kws.some(k => msg.includes(k))) { facts.push({ key: 'subtopic', value: s }); break; }
-  }
-  for (const [i, kws] of Object.entries(INTENT_KW)) {
-    if (kws.some(k => msg.includes(k))) { facts.push({ key: 'intent', value: i }); break; }
-  }
-
-  facts.push({ key: 'level', value: 'beginner' });
-  return facts;
+function detectarNivel(mensajeNormalizado: string): string {
+  const esPrincipiante = FRASES_PRINCIPIANTE.some(f => mensajeNormalizado.includes(f));
+  const esExperto = FRASES_EXPERTO.some(f => mensajeNormalizado.includes(f));
+  if (esExperto && !esPrincipiante) return 'experto';
+  if (esPrincipiante && !esExperto) return 'principiante';
+  return 'intermedio';
 }
 
-// ─── Condition Evaluator ──────────────────────────────────────────
-function evalCond(c: RuleCondition, facts: Fact[]): boolean {
-  const f = facts.find(x => x.key === c.fact);
-  if (!f) return false;
-  switch (c.operator) {
-    case 'equals': return f.value === c.value;
-    case 'contains': return f.value.includes(c.value as string);
-    case 'in': return Array.isArray(c.value) && c.value.includes(f.value);
-    case 'not_equals': return f.value !== c.value;
+function extraerHechos(mensaje: string): Hecho[] {
+  const msg = normalizar(mensaje);
+  const hechos: Hecho[] = [];
+
+  for (const [t, pcs] of Object.entries(PALABRAS_TEMA)) {
+    if (pcs.some(p => msg.includes(p))) { hechos.push({ clave: 'tema', valor: t }); break; }
+  }
+  for (const [s, pcs] of Object.entries(PALABRAS_SUBTEMA)) {
+    if (pcs.some(p => msg.includes(p))) { hechos.push({ clave: 'subtema', valor: s }); break; }
+  }
+  for (const [i, pcs] of Object.entries(PALABRAS_INTENCION)) {
+    if (pcs.some(p => msg.includes(p))) { hechos.push({ clave: 'intencion', valor: i }); break; }
+  }
+
+  const nivel = detectarNivel(msg);
+  hechos.push({ clave: 'nivel', valor: nivel });
+  return hechos;
+}
+
+// ─── Evaluador de Condiciones ─────────────────────────────────────
+function evaluarCondicion(c: CondicionRegla, hechos: Hecho[]): boolean {
+  const h = hechos.find(x => x.clave === c.hecho);
+  if (!h) return false;
+  switch (c.operador) {
+    case 'igual': return h.valor === c.valor;
+    case 'contiene': return h.valor.includes(c.valor as string);
+    case 'en': return Array.isArray(c.valor) && c.valor.includes(h.valor);
+    case 'no_igual': return h.valor !== c.valor;
     default: return false;
   }
 }
 
-// ─── Inference Engine ─────────────────────────────────────────────
-function runEngine(facts: Fact[], rules: ExpertRule[]): { matched: boolean; rule?: ExpertRule; response: string } {
-  const matched = rules.filter(r => r.conditions.every(c => evalCond(c, facts)));
+// ─── Motor de Inferencia ──────────────────────────────────────────
+function ejecutarMotor(hechos: Hecho[], reglas: ReglaExperta[]): { coincidio: boolean; regla?: ReglaExperta; respuesta: string } {
+  const coincidencias = reglas.filter(r => r.condiciones.every(c => evaluarCondicion(c, hechos)));
 
-  if (matched.length === 0) {
-    return { matched: false, response: '🤔 No tengo una respuesta específica para eso. Puedo ayudarte con **programación**, **matemáticas** y **redes**. ¿Podrías reformular tu pregunta?' };
+  if (coincidencias.length === 0) {
+    return { coincidio: false, respuesta: '🤔 No tengo una respuesta específica para eso. Puedo ayudarte con **programación**, **matemáticas** y **redes**. ¿Podrías reformular tu pregunta?' };
   }
 
-  const best = matched.sort((a, b) => b.priority !== a.priority ? b.priority - a.priority : b.conditions.length - a.conditions.length)[0];
+  const mejor = coincidencias.sort((a, b) => b.prioridad !== a.prioridad ? b.prioridad - a.prioridad : b.condiciones.length - a.condiciones.length)[0];
 
-  let resp = best.response;
-  if (best.followUp) resp += `\n\n---\n💡 ${best.followUp}`;
+  // Seleccionar respuesta segun nivel del usuario
+  const nivelUsuario = hechos.find(h => h.clave === 'nivel')?.valor;
+  let resp = (nivelUsuario === 'experto' && mejor.respuestaExperto) ? mejor.respuestaExperto : mejor.respuesta;
+  if (mejor.seguimiento) resp += `\n\n---\n💡 ${mejor.seguimiento}`;
 
-  return { matched: true, rule: best, response: resp };
+  return { coincidio: true, regla: mejor, respuesta: resp };
 }
 
 // ─── Knowledge Base (Hardcoded Rules) ─────────────────────────────

@@ -16,7 +16,7 @@ import { Qwen } from '@/components/qwen'
 import { n8n as N8n } from '@/components/n8n'
 import { PostgreSQL } from '@/components/postgre'
 import { React } from '@/components/react'
-
+import { Analytics } from "@vercel/analytics/react"
 // Logos from the user's created components
 const partnerLogos = [
   <React key="react" />,
@@ -48,6 +48,7 @@ function LandingPage() {
       */}
       <main className="pt-16" id="inicio">
         <h1 className="text-white bg-[#0d0d0d] h-[1px]"></h1>
+        <Analytics />
         <HeroScrollAnimation />
 
         <div id="que-es" className="scroll-mt-20">

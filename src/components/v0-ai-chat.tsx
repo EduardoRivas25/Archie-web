@@ -259,7 +259,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                 {
                     id: `error-${Date.now()}`,
                     role: 'assistant',
-                    content: 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.',
+                    content: err instanceof Error ? err.message : 'Lo siento, hubo un error al procesar tu mensaje. Intenta de nuevo.',
                     model: selectedModel.name,
                 },
             ]);

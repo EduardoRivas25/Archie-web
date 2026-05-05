@@ -1,4 +1,6 @@
 import { insforge } from '@/lib/insforge';
+import { getUserProfile } from '@/services/authService';
+import { getRolePermissions, RoleType } from '@/services/roleService';
 
 const WEBHOOK_URL = import.meta.env.VITE_CHAT_WEBHOOK_URL;
 
@@ -118,6 +120,30 @@ async function saveMessage(
   return data[0] as ChatMessage;
 }
 
+export async function checkMessageLimit(userId: string): Promise<void> {
+  const profile = await getUserProfile(userId);
+  const role = (profile?.role || 'free') as RoleType;
+  
+  const { maxChats, label } = getRolePermissions(role);
+  if (maxChats === Infinity) return;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const { count, error } = await insforge.database
+    .from('chat_messages')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('role', 'user')
+    .gte('created_at', today.toISOString());
+
+  if (error) throw error;
+
+  if ((count || 0) >= maxChats) {
+    throw new Error(`Has alcanzado el límite de ${maxChats} mensajes diarios de tu plan ${label}.`);
+  }
+}
+
 // ─── Send Message (Webhook) ─────────────────────────────────────────
 
 export async function sendMessage(
@@ -126,6 +152,7 @@ export async function sendMessage(
   content: string,
   model: string = 'pro'
 ): Promise<{ userMsg: ChatMessage; assistantMsg: ChatMessage }> {
+  await checkMessageLimit(userId);
   // 1. Save user message
   const userMsg = await saveMessage(sessionId, userId, 'user', content);
 
@@ -171,6 +198,7 @@ export async function sendToWebhookOnly(
   content: string,
   model: string = 'pro'
 ): Promise<{ userMsg: ChatMessage; assistantContent: string }> {
+  await checkMessageLimit(userId);
   // 1. Save user message
   const userMsg = await saveMessage(sessionId, userId, 'user', content);
 
@@ -227,6 +255,7 @@ export async function sendToExpertSystem(
   content: string,
   model: string = 'pro'
 ): Promise<{ userMsg: ChatMessage; assistantContent: string }> {
+  await checkMessageLimit(userId);
   // 1. Save user message to DB
   const userMsg = await saveMessage(sessionId, userId, 'user', content);
 

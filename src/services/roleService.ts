@@ -23,21 +23,21 @@ export const ROLE_PERMISSIONS: Record<RoleType, {
 }> = {
   free: {
     label: 'Free',
-    maxChats: 50,
+    maxChats: 20,
     canAccessPro: false,
     canManageUsers: false,
     models: ['rapido'],
   },
   pro: {
     label: 'Pro',
-    maxChats: Infinity,
+    maxChats: 300,
     canAccessPro: true,
     canManageUsers: false,
     models: ['rapido', 'pensar', 'pro'],
   },
   student: {
     label: 'Estudiante',
-    maxChats: 200,
+    maxChats: 80,
     canAccessPro: true,
     canManageUsers: false,
     models: ['rapido', 'pensar'],

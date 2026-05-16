@@ -90,8 +90,8 @@ export async function uploadReferencePhoto(userId: string, imageDataUrl: string)
   return data?.key || key;
 }
 
-export async function getActiveEnrollment(userId: string) {
-  const client = getServerInsforge();
+export async function getActiveEnrollment(userId: string, edgeFunctionToken?: string) {
+  const client = getServerInsforge(edgeFunctionToken);
   const { data, error } = await client.database
     .from('face_enrollments')
     .select()
@@ -113,8 +113,14 @@ export async function getActiveEnrollment(userId: string) {
   } | null;
 }
 
-export async function saveVerificationAttempt(userId: string, score: number, passed: boolean, failureReason: string | null) {
-  const client = getServerInsforge();
+export async function saveVerificationAttempt(
+  userId: string,
+  score: number,
+  passed: boolean,
+  failureReason: string | null,
+  edgeFunctionToken?: string
+) {
+  const client = getServerInsforge(edgeFunctionToken);
   const { error } = await client.database
     .from('face_verification_attempts')
     .insert([{

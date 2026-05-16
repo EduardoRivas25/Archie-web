@@ -23,8 +23,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { user } = await requireUser(req);
-    const enrollment = await getActiveEnrollment(user.id);
+    const { user, token } = await requireUser(req);
+    const enrollment = await getActiveEnrollment(user.id, token);
 
     if (req.method === 'GET') {
       return res.status(200).json({
@@ -35,7 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!enrollment) {
-      await saveVerificationAttempt(user.id, 0, false, 'No hay rostro registrado.');
+      await saveVerificationAttempt(user.id, 0, false, 'No hay rostro registrado.', token);
       return res.status(409).json({ error: 'No hay rostro registrado para esta cuenta.' });
     }
 
@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const passed = score >= threshold;
     const failureReason = passed ? null : 'El rostro no coincide con el registro.';
 
-    await saveVerificationAttempt(user.id, score, passed, failureReason);
+    await saveVerificationAttempt(user.id, score, passed, failureReason, token);
 
     return res.status(200).json({
       passed,

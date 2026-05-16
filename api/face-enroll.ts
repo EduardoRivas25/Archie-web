@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { user } = await requireUser(req);
+    const { user, token } = await requireUser(req);
     const { imageDataUrl, descriptor: rawDescriptor } = req.body ?? {};
     if (!imageDataUrl || typeof imageDataUrl !== 'string') {
       return res.status(400).json({ error: 'Missing imageDataUrl.' });
@@ -28,8 +28,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const descriptor = validateDescriptor(rawDescriptor);
     const referencePhotoKey = `${user.id}/${Date.now()}-reference-client-capture.jpg`;
-    const client = getServerInsforge();
-    const existing = await getActiveEnrollment(user.id);
+    const client = getServerInsforge(token);
+    const existing = await getActiveEnrollment(user.id, token);
 
     if (existing) {
       const { error } = await client.database

@@ -91,7 +91,7 @@ export async function verifyFace(capture: FaceCapturePayload) {
     return {
       passed: false,
       score: 0,
-      threshold: 0.9,
+      threshold: 0.55,
       modelVersion: 'insforge-image-descriptor-v1',
       failureReason: 'NO_ENROLLMENT',
     };

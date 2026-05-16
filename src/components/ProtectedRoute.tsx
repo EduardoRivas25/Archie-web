@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading, profile } = useAuth();
+  const { isAuthenticated, isLoading, profile, biometricVerified } = useAuth();
 
   if (isLoading) {
     return (
@@ -23,6 +23,10 @@ export function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!biometricVerified) {
+    return <Navigate to="/login?biometric=required" replace />;
   }
 
   // Check role permissions

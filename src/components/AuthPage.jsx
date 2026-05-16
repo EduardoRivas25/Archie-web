@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Lock, User, ArrowLeft, AlertCircle, KeyRound } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { FaGithub } from 'react-icons/fa';
@@ -8,11 +8,22 @@ import Antigravity from './Antigravity';
 import { useAuth } from '@/context/AuthContext';
 import { sendPasswordReset, verifyEmail, resendVerificationEmail, exchangeResetToken, resetPassword, createUserProfile, getUserProfile } from '@/services/authService';
 import { determineRoleForNewUser } from '@/services/roleService';
+import { FaceCaptureStep } from '@/components/FaceCaptureStep';
+import { enrollFace, getFaceEnrollmentStatus, verifyFace } from '@/services/biometricService';
 
 export function AuthPage() {
   const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot' | 'verify' | 'reset-code'
   const navigate = useNavigate();
-  const { signIn, signUp, signInWithGoogle, signInWithGitHub } = useAuth();
+  const [searchParams] = useSearchParams();
+  const {
+    signIn,
+    signUp,
+    signInWithGoogle,
+    signInWithGitHub,
+    isAuthenticated,
+    biometricVerified,
+    completeBiometricVerification,
+  } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,9 +39,35 @@ export function AuthPage() {
   // Password reset
   const [resetCode, setResetCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [resetToken, setResetToken] = useState('');
-
   const clearFeedback = () => { setError(''); setSuccess(''); };
+
+  const goToBiometricStep = async (enrollMessage, verifyMessage) => {
+    try {
+      const status = await getFaceEnrollmentStatus();
+      if (status.enrolled) {
+        setMode('face-verify');
+        setSuccess(verifyMessage);
+      } else {
+        setMode('face-enroll');
+        setSuccess(enrollMessage);
+      }
+    } catch (err) {
+      setMode('face-enroll');
+      setSuccess(enrollMessage);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated && !biometricVerified && searchParams.get('biometric') === 'required') {
+      queueMicrotask(() => {
+        clearFeedback();
+        void goToBiometricStep(
+          'Esta cuenta aun no tiene rostro registrado. Registralo para continuar.',
+          'Verifica tu rostro para continuar.'
+        );
+      });
+    }
+  }, [isAuthenticated, biometricVerified, searchParams]);
 
   // ─── Login ──────────────────────────────────────────────
   const handleLogin = async (e) => {
@@ -41,7 +78,10 @@ export function AuthPage() {
     setLoading(true);
     try {
       await signIn(email, password);
-      navigate('/chat');
+      await goToBiometricStep(
+        'Credenciales correctas. Registra tu rostro para proteger el acceso.',
+        'Credenciales correctas. Verifica tu rostro para continuar.'
+      );
     } catch (err) {
       setError(err.message || 'Credenciales inválidas.');
     } finally {
@@ -64,7 +104,8 @@ export function AuthPage() {
         setMode('verify');
         setSuccess('Te enviamos un código de verificación a tu correo.');
       } else {
-        navigate('/chat');
+        setMode('face-enroll');
+        setSuccess('Cuenta creada. Registra tu rostro para proteger el acceso.');
       }
     } catch (err) {
       setError(err.message || 'Error al registrarse.');
@@ -92,10 +133,8 @@ export function AuthPage() {
             await createUserProfile(userId, name || pendingEmail.split('@')[0], pendingEmail, role);
           }
         }
-        setSuccess('¡Email verificado! Redirigiendo...');
-        setTimeout(() => {
-          window.location.href = '/chat';
-        }, 1500);
+        setSuccess('Email verificado. Registra tu rostro para continuar.');
+        setMode('face-enroll');
       }
     } catch (err) {
       setError(err.message || 'Código inválido.');
@@ -185,6 +224,29 @@ export function AuthPage() {
   };
 
   // ─── Render Title / Description ─────────────────────────
+  const handleFaceEnroll = async (imageDataUrl) => {
+    const result = await enrollFace(imageDataUrl);
+    await completeBiometricVerification();
+    return result;
+  };
+
+  const handleFaceVerify = async (imageDataUrl) => {
+    const result = await verifyFace(imageDataUrl);
+    if (result.failureReason === 'NO_ENROLLMENT') {
+      setMode('face-enroll');
+      setSuccess('Esta cuenta aun no tiene rostro registrado. Registralo para continuar.');
+      return { ...result, failureReason: 'Registra tu rostro para continuar.' };
+    }
+    if (result.passed) {
+      await completeBiometricVerification();
+    }
+    return result;
+  };
+
+  const handleFaceSuccess = () => {
+    setTimeout(() => navigate('/chat'), 700);
+  };
+
   const getTitle = () => {
     switch (mode) {
       case 'login': return 'Bienvenido';
@@ -192,6 +254,8 @@ export function AuthPage() {
       case 'forgot': return 'Recuperar contraseña';
       case 'verify': return 'Verifica tu email';
       case 'reset-code': return 'Nueva contraseña';
+      case 'face-enroll': return 'Registro facial';
+      case 'face-verify': return 'Verificacion facial';
       default: return 'Bienvenido';
     }
   };
@@ -203,6 +267,8 @@ export function AuthPage() {
       case 'forgot': return 'Te enviaremos un código de recuperación a tu correo';
       case 'verify': return `Ingresa el código de 6 dígitos enviado a ${pendingEmail}`;
       case 'reset-code': return `Ingresa el código enviado a ${pendingEmail} y tu nueva contraseña`;
+      case 'face-enroll': return 'Captura tu rostro para asociarlo a tu cuenta';
+      case 'face-verify': return 'Confirma que eres la misma persona registrada';
       default: return '';
     }
   };
@@ -405,6 +471,28 @@ export function AuthPage() {
           )}
 
           {/* ─── OAuth (login + register) ─── */}
+          {mode === 'face-enroll' && (
+            <FaceCaptureStep
+              title="Registra tu rostro"
+              description="Esta captura se guardara en InsForge para futuros inicios de sesion."
+              submitLabel="REGISTRAR ROSTRO"
+              loadingLabel="Registrando..."
+              onSubmit={handleFaceEnroll}
+              onSuccess={handleFaceSuccess}
+            />
+          )}
+
+          {mode === 'face-verify' && (
+            <FaceCaptureStep
+              title="Verifica tu rostro"
+              description="Despues de tus credenciales, necesitamos confirmar tu identidad."
+              submitLabel="VERIFICAR ROSTRO"
+              loadingLabel="Verificando..."
+              onSubmit={handleFaceVerify}
+              onSuccess={handleFaceSuccess}
+            />
+          )}
+
           {(mode === 'login' || mode === 'register') && (
             <div className="mt-6">
               <div className="relative">
@@ -436,7 +524,7 @@ export function AuthPage() {
                 </button>
               </p>
             )}
-            {(mode === 'forgot' || mode === 'verify' || mode === 'reset-code') && (
+            {(mode === 'forgot' || mode === 'verify' || mode === 'reset-code' || mode === 'face-verify') && (
               <button onClick={() => { setMode('login'); clearFeedback(); }}
                 className="text-sm text-blue-500 font-medium hover:text-blue-400 transition-colors">
                 Volver al inicio de sesión

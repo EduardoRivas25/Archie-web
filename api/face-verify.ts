@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const descriptor = validateDescriptor(rawDescriptor);
-    const threshold = Math.min(Number(enrollment.threshold || FACE_THRESHOLD), FACE_THRESHOLD);
+    const threshold = Number(enrollment.threshold || FACE_THRESHOLD);
     const score = compareDescriptors(descriptor, enrollment.descriptor);
     const passed = score >= threshold;
     const failureReason = passed ? null : 'El rostro no coincide con el registro.';

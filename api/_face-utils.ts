@@ -2,7 +2,7 @@ import type { VercelRequest } from '@vercel/node';
 import { createClient } from '@insforge/sdk';
 
 export const FACE_MODEL_VERSION = 'insforge-image-descriptor-v1';
-export const FACE_THRESHOLD = 0.55;
+export const FACE_THRESHOLD = 0.72;
 
 export function getServerInsforge(edgeFunctionToken?: string) {
   const baseUrl = process.env.INSFORGE_URL || process.env.VITE_INSFORGE_URL;

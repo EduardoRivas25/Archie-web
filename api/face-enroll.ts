@@ -5,9 +5,8 @@ import {
   getActiveEnrollment,
   getServerInsforge,
   requireUser,
-  uploadReferencePhoto,
   validateDescriptor,
-} from './_face-utils';
+} from './_face-utils.js';
 
 export const config = {
   api: {
@@ -28,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const descriptor = validateDescriptor(rawDescriptor);
-    const referencePhotoKey = await uploadReferencePhoto(user.id, imageDataUrl);
+    const referencePhotoKey = `${user.id}/${Date.now()}-reference-client-capture.jpg`;
     const client = getServerInsforge();
     const existing = await getActiveEnrollment(user.id);
 

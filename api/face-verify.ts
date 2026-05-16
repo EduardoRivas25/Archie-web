@@ -7,7 +7,7 @@ import {
   requireUser,
   saveVerificationAttempt,
   validateDescriptor,
-} from './_face-utils';
+} from './_face-utils.js';
 
 export const config = {
   api: {

@@ -46,6 +46,11 @@ async function readResponsePayload(response: Response) {
 
 function throwApiError(response: Response, payload: Record<string, unknown>, fallback: string): never {
   const message = payload.error || payload.message || payload.details || response.statusText || fallback;
+  if (response.status === 502) {
+    throw new Error(
+      'No esta corriendo el servidor local de funciones. Abre otra terminal y ejecuta: npm run dev:api'
+    );
+  }
   throw new Error(`[${response.status}] ${String(message)}`);
 }
 

@@ -276,7 +276,7 @@ export function AuthPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4 font-sans text-gray-100 overflow-hidden">
+    <div className="relative min-h-[100dvh] bg-[#0d0d0d] flex items-start justify-center overflow-x-hidden overflow-y-auto px-3 py-3 font-sans text-gray-100 sm:items-center sm:p-4">
       {/* Background Animation */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <Antigravity
@@ -287,7 +287,7 @@ export function AuthPage() {
         />
       </div>
 
-      <div className={`relative z-10 bg-[#1c1c1e]/90 backdrop-blur-xl w-full ${mode === 'face-enroll' || mode === 'face-verify' ? 'max-w-sm sm:max-w-md' : 'max-w-md'} rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 overflow-hidden`}>
+      <div className={`relative z-10 my-auto bg-[#1c1c1e]/90 backdrop-blur-xl w-full ${mode === 'face-enroll' || mode === 'face-verify' ? 'max-w-[22rem] sm:max-w-md' : 'max-w-md'} rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 overflow-hidden`}>
         {/* MacOS Window Controls */}
         <div className="flex items-center gap-2 px-4 py-3 bg-[#2d2d2d]/80 border-b border-white/10">
           <div className="w-3 h-3 rounded-full bg-[#ff5f56] shadow-sm border border-black/20"></div>
@@ -295,10 +295,10 @@ export function AuthPage() {
           <div className="w-3 h-3 rounded-full bg-[#27c93f] shadow-sm border border-black/20"></div>
         </div>
 
-        <div className={`${mode === 'face-enroll' || mode === 'face-verify' ? 'px-5 sm:px-8' : 'px-8'} pb-8 pt-6`}>
-          <div className="flex flex-col items-center mb-6">
-            <img src={archieAvatar} alt="Archie" className={`${mode === 'face-enroll' || mode === 'face-verify' ? 'w-20 h-20 sm:w-28 sm:h-28' : 'w-32 h-32'} rounded-full mb-4 shadow-lg border-2 border-white/10 object-cover`} />
-            <h1 className="text-3xl font-bold tracking-tight text-white">{getTitle()}</h1>
+        <div className={`${mode === 'face-enroll' || mode === 'face-verify' ? 'px-4 sm:px-8' : 'px-5 sm:px-8'} pb-5 pt-4 sm:pb-8 sm:pt-6`}>
+          <div className="flex flex-col items-center mb-4 sm:mb-6">
+            <img src={archieAvatar} alt="Archie" className={`${mode === 'face-enroll' || mode === 'face-verify' ? 'w-16 h-16 sm:w-28 sm:h-28' : 'w-24 h-24 sm:w-32 sm:h-32'} rounded-full mb-3 sm:mb-4 shadow-lg border-2 border-white/10 object-cover`} />
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">{getTitle()}</h1>
             <p className="text-sm text-gray-400 mt-2 text-center">{getDescription()}</p>
           </div>
 

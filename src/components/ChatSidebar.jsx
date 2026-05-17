@@ -69,12 +69,12 @@ export function ChatSidebar({ isOpen, onClose, activeSessionId, onSelectSession,
       {/* Sidebar panel */}
       <aside
         className={cn(
-          'fixed lg:relative left-0 top-0 h-full z-50 flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
+          'fixed lg:relative left-0 top-0 h-[100dvh] lg:h-full z-50 flex flex-col transition-all duration-300 ease-in-out overflow-hidden',
           theme === 'dark' ? 'bg-[#0d0d0d] border-r border-white/5' : 'bg-white border-r border-black/5',
-          isOpen ? 'w-72 opacity-100 translate-x-0' : 'w-0 opacity-0 -translate-x-full lg:translate-x-0'
+          isOpen ? 'w-[min(18rem,86vw)] opacity-100 translate-x-0 lg:w-72' : 'w-0 opacity-0 -translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="w-72 flex flex-col h-full shrink-0">
+        <div className="flex h-full w-[min(18rem,86vw)] shrink-0 flex-col lg:w-72">
           {/* Top actions */}
           <div className="flex items-center justify-between px-3 pt-4 pb-2">
             <button

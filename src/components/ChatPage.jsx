@@ -10,12 +10,23 @@ import { ProfileSettingsModal } from '@/components/ProfileSettingsModal';
 import { cn } from '@/lib/utils';
 
 export function ChatPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.matchMedia('(min-width: 1024px)').matches;
+  });
   const [profileOpen, setProfileOpen] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { theme } = useTheme();
   const { user, profile } = useAuth();
+
+  React.useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const syncSidebar = () => setSidebarOpen(media.matches);
+    syncSidebar();
+    media.addEventListener('change', syncSidebar);
+    return () => media.removeEventListener('change', syncSidebar);
+  }, []);
 
   const handleNewChat = useCallback(() => {
     setActiveSessionId(null);
@@ -32,7 +43,7 @@ export function ChatPage() {
 
   return (
     <div className={cn(
-      "h-screen font-sans flex overflow-hidden transition-colors duration-300",
+      "h-[100dvh] max-h-[100dvh] font-sans flex overflow-hidden transition-colors duration-300",
       theme === 'dark' ? "bg-[#0d0d0d] text-gray-100" : "bg-gray-50 text-gray-900"
     )}>
       {/* Sidebar */}
@@ -53,10 +64,10 @@ export function ChatPage() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 relative h-full">
+      <div className="flex-1 flex flex-col min-w-0 relative h-full min-h-0">
         {/* Header */}
         <header className={cn(
-          "flex h-14 items-center justify-between px-4 border-b backdrop-blur-md sticky top-0 z-30 transition-colors",
+          "flex h-14 shrink-0 items-center justify-between px-3 sm:px-4 border-b backdrop-blur-md sticky top-0 z-30 transition-colors",
           theme === 'dark' ? "border-white/5 bg-[#0d0d0d]/80" : "border-black/5 bg-white/80"
         )}>
           <div className="flex items-center gap-3">
@@ -84,9 +95,9 @@ export function ChatPage() {
         </header>
 
         {/* Chat Main (solo el chat) */}
-        <main className="flex-1 overflow-y-auto w-full flex flex-col">
+        <main className="flex-1 min-h-0 overflow-y-auto w-full flex flex-col">
           <div className="flex-1 flex flex-col justify-start md:justify-start lg:justify-start min-h-0">
-            <div className="max-w-4xl mx-auto w-full px-4 pt-4 pb-10 md:pt-10 md:pb-20 mt-auto md:mt-0">
+            <div className="max-w-4xl mx-auto flex min-h-full w-full flex-col px-3 pt-3 pb-4 sm:px-4 md:pt-10 md:pb-10 mt-auto md:mt-0">
               <VercelV0Chat
                 activeSessionId={activeSessionId}
                 onSessionCreated={handleSessionCreated}

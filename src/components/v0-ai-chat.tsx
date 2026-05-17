@@ -275,10 +275,10 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
     };
 
     return (
-        <div className="flex flex-col w-full max-w-4xl mx-auto min-h-full">
+        <div className="flex min-h-full w-full max-w-4xl mx-auto flex-col">
             {/* Messages Area */}
             {messages.length > 0 ? (
-                <div className="flex-1 space-y-8 pb-32">
+                <div className="flex-1 space-y-6 pb-24 sm:space-y-8 sm:pb-32">
                     {messages.map((msg) => (
                         <div key={msg.id} className={cn(
                             "flex flex-col gap-3 group animate-in fade-in slide-in-from-bottom-2 duration-300",
@@ -294,7 +294,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                             )}
 
                             <div className={cn(
-                                "max-w-[85%] md:max-w-[75%] rounded-2xl px-4 py-3 text-sm md:text-base transition-all",
+                                "max-w-[92%] md:max-w-[75%] rounded-2xl px-3 py-2.5 text-sm md:px-4 md:py-3 md:text-base transition-all",
                                 msg.role === "user"
                                     ? "bg-[#2d2d2d] text-white rounded-tr-none shadow-sm"
                                     : "bg-transparent text-inherit"
@@ -332,7 +332,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                     <div ref={messagesEndRef} />
                 </div>
             ) : (
-                <div className="flex flex-col items-center space-y-8 py-10 md:py-20">
+                <div className="flex flex-1 flex-col items-center justify-center space-y-6 py-8 md:space-y-8 md:py-20">
                     <h1 className={cn(
                         "text-2xl md:text-5xl font-bold transition-colors text-center tracking-tight",
                         theme === 'dark' ? "text-white" : "text-gray-900"
@@ -365,7 +365,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
 
             {/* Input Section - Persistent at bottom */}
             <div className={cn(
-                "sticky bottom-0 w-full pt-4 pb-6 transition-all",
+                "sticky bottom-0 w-full pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] transition-all sm:pt-4 sm:pb-6",
                 messages.length > 0 ? (theme === 'dark' ? "bg-gradient-to-t from-[#0d0d0d] via-[#0d0d0d]/95 to-transparent" : "bg-gradient-to-t from-gray-50 via-gray-50/95 to-transparent") : ""
             )}>
                 <div className={cn(
@@ -383,7 +383,7 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                             onKeyDown={handleKeyDown}
                             placeholder="Pregúntale algo a Archie..."
                             className={cn(
-                                "w-full px-6 py-5",
+                                "w-full px-4 py-4 sm:px-6 sm:py-5",
                                 "resize-none",
                                 "bg-transparent",
                                 "border-none",
@@ -391,13 +391,13 @@ export function VercelV0Chat({ activeSessionId, onSessionCreated }: VercelV0Chat
                                 "focus:outline-none text-base md:text-lg",
                                 "focus-visible:ring-0 focus-visible:ring-offset-0",
                                 "placeholder:text-neutral-500 placeholder:text-base",
-                                "min-h-[60px]"
+                                "min-h-[56px] sm:min-h-[60px]"
                             )}
                             style={{ overflow: "hidden" }}
                         />
                     </div>
 
-                    <div className="flex items-center justify-between px-3 pb-3">
+                    <div className="flex items-center justify-between px-2.5 pb-2.5 sm:px-3 sm:pb-3">
                         <div className="flex items-center gap-2">
                             {/* Model Selector Dropdown */}
                             <DropdownMenu>

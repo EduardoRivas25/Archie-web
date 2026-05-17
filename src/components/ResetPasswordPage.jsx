@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#0d0d0d] flex items-center justify-center p-4 font-sans text-gray-100 overflow-hidden">
+    <div className="relative min-h-[100dvh] bg-[#0d0d0d] flex items-start justify-center overflow-x-hidden overflow-y-auto px-3 py-3 font-sans text-gray-100 sm:items-center sm:p-4">
       <div className="absolute inset-0 z-0 pointer-events-none">
         <Antigravity
           count={400} magnetRadius={10} ringRadius={10} waveSpeed={0.4}
@@ -64,7 +64,7 @@ export function ResetPasswordPage() {
         />
       </div>
 
-      <div className="relative z-10 bg-[#1c1c1e]/90 backdrop-blur-xl w-full max-w-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 overflow-hidden">
+      <div className="relative z-10 my-auto bg-[#1c1c1e]/90 backdrop-blur-xl w-full max-w-md rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] border border-white/10 overflow-hidden">
         {/* MacOS Window Controls */}
         <div className="flex items-center gap-2 px-4 py-3 bg-[#2d2d2d]/80 border-b border-white/10">
           <div className="w-3 h-3 rounded-full bg-[#ff5f56] shadow-sm border border-black/20"></div>
@@ -72,9 +72,9 @@ export function ResetPasswordPage() {
           <div className="w-3 h-3 rounded-full bg-[#27c93f] shadow-sm border border-black/20"></div>
         </div>
 
-        <div className="px-8 pb-8 pt-6">
-          <div className="flex flex-col items-center mb-6">
-            <img src={archieAvatar} alt="Archie" className="w-24 h-24 rounded-full mb-4 shadow-lg border-2 border-white/10 object-cover" />
+        <div className="px-5 pb-5 pt-4 sm:px-8 sm:pb-8 sm:pt-6">
+          <div className="flex flex-col items-center mb-4 sm:mb-6">
+            <img src={archieAvatar} alt="Archie" className="w-20 h-20 rounded-full mb-3 shadow-lg border-2 border-white/10 object-cover sm:mb-4 sm:h-24 sm:w-24" />
             <h1 className="text-2xl font-bold tracking-tight text-white">
               {success ? '¡Contraseña actualizada!' : 'Nueva contraseña'}
             </h1>

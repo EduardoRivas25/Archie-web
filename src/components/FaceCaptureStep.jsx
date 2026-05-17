@@ -173,9 +173,9 @@ export function FaceCaptureStep({
         : submitLabel;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       <div className="text-center">
-        <div className="mx-auto mb-2 flex h-11 w-11 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 sm:h-12 sm:w-12">
+        <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 sm:h-12 sm:w-12">
           <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
         </div>
         <h2 className="text-lg font-semibold text-white sm:text-xl">{title}</h2>
@@ -183,7 +183,7 @@ export function FaceCaptureStep({
         {modelVersion && <p className="mt-1 text-xs text-gray-500">Modelo {modelVersion}</p>}
       </div>
 
-      <div className="relative mx-auto aspect-[4/5] max-h-[48vh] min-h-[260px] w-full max-w-[320px] overflow-hidden rounded-xl border border-white/10 bg-[#101010] shadow-inner sm:aspect-square sm:max-h-none sm:max-w-none">
+      <div className="relative mx-auto h-[clamp(210px,42dvh,320px)] w-full max-w-[320px] overflow-hidden rounded-xl border border-white/10 bg-[#101010] shadow-inner sm:aspect-square sm:h-auto sm:max-h-none sm:max-w-none">
         <video ref={videoRef} playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
         <div className="pointer-events-none absolute inset-6 rounded-full border border-white/25 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]" />
         <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-lg border border-white/10 bg-black/70 px-3 py-2 text-center text-xs font-medium leading-snug text-white backdrop-blur-sm sm:text-sm">

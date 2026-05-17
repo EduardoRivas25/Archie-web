@@ -34,13 +34,20 @@
   
   html {
     scroll-behavior: smooth;
+    min-height: 100%;
   }
   
   body {
+    min-height: 100%;
     background-color: var(--color-background);
     color: var(--color-foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100%;
   }
 }
 

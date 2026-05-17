@@ -1,11 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
+  FACE_DISTANCE_THRESHOLD,
   FACE_MODEL_VERSION,
-  FACE_THRESHOLD,
   getActiveEnrollment,
   getServerInsforge,
   requireUser,
-  validateDescriptor,
+  validateDescriptorSet,
+  validateLiveness,
 } from './_face-utils.js';
 
 export const config = {
@@ -21,12 +22,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { user, token } = await requireUser(req);
-    const { imageDataUrl, descriptor: rawDescriptor } = req.body ?? {};
+    const { imageDataUrl, descriptors: rawDescriptors, liveness } = req.body ?? {};
     if (!imageDataUrl || typeof imageDataUrl !== 'string') {
       return res.status(400).json({ error: 'Missing imageDataUrl.' });
     }
 
-    const descriptor = validateDescriptor(rawDescriptor);
+    validateLiveness(liveness, true);
+    const descriptors = validateDescriptorSet(rawDescriptors);
+    const descriptor = {
+      version: FACE_MODEL_VERSION,
+      descriptors,
+      captureCount: descriptors.length,
+      livenessRequired: true,
+    };
     const referencePhotoKey = `${user.id}/${Date.now()}-reference-client-capture.jpg`;
     const client = getServerInsforge(token);
     const existing = await getActiveEnrollment(user.id, token);
@@ -38,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           model_version: FACE_MODEL_VERSION,
           descriptor,
           reference_photo_key: referencePhotoKey,
-          threshold: FACE_THRESHOLD,
+          threshold: FACE_DISTANCE_THRESHOLD,
           status: 'active',
           updated_at: new Date().toISOString(),
         })
@@ -54,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           model_version: FACE_MODEL_VERSION,
           descriptor,
           reference_photo_key: referencePhotoKey,
-          threshold: FACE_THRESHOLD,
+          threshold: FACE_DISTANCE_THRESHOLD,
           status: 'active',
         }]);
       if (error) {
@@ -65,7 +73,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
       passed: true,
       score: 1,
-      threshold: FACE_THRESHOLD,
+      threshold: FACE_DISTANCE_THRESHOLD,
       modelVersion: FACE_MODEL_VERSION,
     });
   } catch (err) {

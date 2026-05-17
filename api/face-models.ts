@@ -15,10 +15,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         modelVersion: FACE_MODEL_VERSION,
         source: 'fallback',
         manifest: {
-          name: 'InsForge image descriptor',
+          name: 'face-api.js browser models',
           version: FACE_MODEL_VERSION,
           storageKey: 'v1/manifest.json',
-          note: 'Upload a manifest to the face-models bucket to replace this fallback metadata.',
+          localPath: '/models/face-api',
+          note: 'Usando modelos locales servidos desde public/models/face-api.',
         },
       });
     }
@@ -35,8 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       modelVersion: FACE_MODEL_VERSION,
       source: 'fallback',
       manifest: {
-        name: 'InsForge image descriptor',
+        name: 'face-api.js browser models',
         version: FACE_MODEL_VERSION,
+        localPath: '/models/face-api',
         note: `Fallback activo: ${message}`,
       },
     });

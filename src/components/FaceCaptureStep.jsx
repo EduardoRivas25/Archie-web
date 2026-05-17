@@ -1,66 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
-import { Camera, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Camera, CheckCircle2, Eye, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { getFaceModels } from '@/services/biometricService';
+import {
+  captureFaceDescriptor,
+  hasMeaningfulMovement,
+  loadFaceApiModels,
+  readBlinkMetric,
+} from '@/lib/faceApiClient';
 
-const CAPTURE_STEPS = [
-  'Centra tu rostro dentro del cuadro.',
-  'Alejate un poco de la camara y mantente de frente.',
-  'Acercate de nuevo y mira directo a la camara.',
+const ENROLL_STEPS = [
+  'Mira de frente y centra tu rostro.',
+  'Parpadea una vez y manten tu rostro visible.',
+  'Mueve ligeramente tu rostro y mira a la camara.',
 ];
 
-function captureFrame(video) {
-  const canvas = document.createElement('canvas');
-  const size = 480;
-  canvas.width = size;
-  canvas.height = size;
-
-  const ctx = canvas.getContext('2d');
-  const sourceWidth = video.videoWidth;
-  const sourceHeight = video.videoHeight;
-  const crop = Math.min(sourceWidth, sourceHeight);
-  const sx = (sourceWidth - crop) / 2;
-  const sy = (sourceHeight - crop) / 2;
-
-  ctx.drawImage(video, sx, sy, crop, crop, 0, 0, size, size);
-
-  const descriptorCanvas = document.createElement('canvas');
-  const descriptorSize = 16;
-  descriptorCanvas.width = descriptorSize;
-  descriptorCanvas.height = descriptorSize;
-  const descriptorCtx = descriptorCanvas.getContext('2d');
-  descriptorCtx.drawImage(canvas, 0, 0, descriptorSize, descriptorSize);
-
-  const pixels = descriptorCtx.getImageData(0, 0, descriptorSize, descriptorSize).data;
-  const values = [];
-  for (let index = 0; index < pixels.length; index += 4) {
-    const gray = (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 / 255;
-    values.push(gray);
-  }
-
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length;
-  const std = Math.sqrt(variance) || 1;
-  const descriptor = values.map((value) => Number(((value - mean) / std).toFixed(6)));
-
-  return {
-    imageDataUrl: canvas.toDataURL('image/jpeg', 0.82),
-    descriptor,
-  };
-}
-
-function averageDescriptors(descriptors) {
-  if (!descriptors.length) return [];
-  const size = descriptors[0].length;
-  const averaged = Array.from({ length: size }, (_, index) => {
-    const sum = descriptors.reduce((total, descriptor) => total + descriptor[index], 0);
-    return Number((sum / descriptors.length).toFixed(6));
-  });
-
-  const mean = averaged.reduce((sum, value) => sum + value, 0) / averaged.length;
-  const variance = averaged.reduce((sum, value) => sum + (value - mean) ** 2, 0) / averaged.length;
-  const std = Math.sqrt(variance) || 1;
-  return averaged.map((value) => Number(((value - mean) / std).toFixed(6)));
-}
+const BLINK_MIN_OPEN_EAR = 0.2;
+const BLINK_MIN_DROP_RATIO = 0.68;
+const BLINK_FALLBACK_CLOSED_EAR = 0.18;
 
 export function FaceCaptureStep({
   title = 'Verificacion facial',
@@ -73,77 +29,178 @@ export function FaceCaptureStep({
 }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const cameraStartRef = useRef(0);
+  const blinkStateRef = useRef({ baseline: 0, wasOpen: false });
+  const firstBoxRef = useRef(null);
   const [ready, setReady] = useState(false);
+  const [modelsReady, setModelsReady] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [modelVersion, setModelVersion] = useState('');
   const [captures, setCaptures] = useState([]);
+  const [blinkDetected, setBlinkDetected] = useState(false);
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
+    cameraStartRef.current += 1;
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+    }
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
-  };
+    setReady(false);
+  }, []);
 
-  const startCamera = async () => {
+  const resetBlink = useCallback(() => {
+    blinkStateRef.current = { baseline: 0, wasOpen: false };
+    setBlinkDetected(false);
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    const startId = cameraStartRef.current + 1;
+    cameraStartRef.current = startId;
+
     setError('');
     setReady(false);
+    setModelsReady(false);
+    resetBlink();
     try {
       try {
         const models = await getFaceModels();
-        setModelVersion(models.modelVersion || 'insforge-image-descriptor-v1');
+        setModelVersion(models.modelVersion || 'face-api-js-v1');
       } catch {
-        setModelVersion('insforge-image-descriptor-v1');
+        setModelVersion('face-api-js-v1');
       }
+
+      await loadFaceApiModels();
+      setModelsReady(true);
 
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
         audio: false,
       });
+
+      if (cameraStartRef.current !== startId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
       if (videoRef.current) {
+        videoRef.current.pause();
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playError) {
+          if (playError?.name !== 'AbortError') throw playError;
+        }
       }
-      setReady(true);
+      if (cameraStartRef.current === startId) {
+        setReady(true);
+      }
     } catch (err) {
       setError(err.message || 'No se pudo activar la camara.');
     }
-  };
+  }, [resetBlink]);
 
   useEffect(() => {
     queueMicrotask(() => {
       startCamera();
     });
     return stopCamera;
-  }, []);
+  }, [startCamera, stopCamera]);
+
+  useEffect(() => {
+    if (!ready || !modelsReady || !videoRef.current) return undefined;
+
+    let cancelled = false;
+    let running = false;
+    const interval = window.setInterval(async () => {
+      if (running || cancelled || !videoRef.current) return;
+      running = true;
+      try {
+        const metric = await readBlinkMetric(videoRef.current);
+        if (metric !== null) {
+          const state = blinkStateRef.current;
+          state.baseline = Math.max(state.baseline * 0.96, metric);
+          if (metric >= BLINK_MIN_OPEN_EAR || metric >= state.baseline * 0.9) {
+            state.wasOpen = true;
+          }
+
+          const droppedFromBaseline = state.baseline >= BLINK_MIN_OPEN_EAR && metric <= state.baseline * BLINK_MIN_DROP_RATIO;
+          const closedByFallback = state.wasOpen && metric <= BLINK_FALLBACK_CLOSED_EAR;
+          if (state.wasOpen && (droppedFromBaseline || closedByFallback)) {
+            setBlinkDetected(true);
+          }
+        }
+      } catch {
+        // The capture action surfaces actionable camera/model errors.
+      } finally {
+        running = false;
+      }
+    }, 120);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [ready, modelsReady]);
 
   const handleSubmit = async () => {
-    if (!videoRef.current || !ready) return;
+    if (!videoRef.current || !ready || !modelsReady) return;
     setError('');
     setSuccess('');
 
-    const capture = captureFrame(videoRef.current);
-    const nextCaptures = [...captures, capture];
-    setCaptures(nextCaptures);
+    const requiredCaptures = multiCapture ? ENROLL_STEPS.length : 1;
+    const currentStep = captures.length;
+    const requiresBlink = !multiCapture || currentStep === 1;
 
-    const requiredCaptures = multiCapture ? CAPTURE_STEPS.length : 1;
-
-    if (nextCaptures.length < requiredCaptures) {
-      setSuccess(`Captura ${nextCaptures.length} de ${requiredCaptures} lista.`);
+    if (requiresBlink && !blinkDetected) {
+      setError('Parpadea una vez antes de continuar.');
       return;
     }
 
     setLoading(true);
     try {
+      const capture = await captureFaceDescriptor(videoRef.current);
+
+      if (multiCapture && currentStep === 0) {
+        firstBoxRef.current = capture.box;
+      }
+
+      if (multiCapture && currentStep === 2 && !hasMeaningfulMovement(firstBoxRef.current, capture.box)) {
+        setError('Mueve ligeramente tu rostro antes de la tercera captura.');
+        return;
+      }
+
+      const nextCaptures = [...captures, capture];
+      setCaptures(nextCaptures);
+
+      if (multiCapture && currentStep === 0) {
+        resetBlink();
+      }
+
+      if (nextCaptures.length < requiredCaptures) {
+        setSuccess(`Captura ${nextCaptures.length} de ${requiredCaptures} lista.`);
+        return;
+      }
+
       const result = await onSubmit({
         imageDataUrl: nextCaptures[0].imageDataUrl,
-        descriptor: averageDescriptors(nextCaptures.map((item) => item.descriptor)),
+        descriptor: nextCaptures[nextCaptures.length - 1].descriptor,
+        descriptors: nextCaptures.map((item) => item.descriptor),
         captures: nextCaptures.map((item) => item.imageDataUrl),
+        liveness: {
+          blinkDetected,
+          movementDetected: !multiCapture || hasMeaningfulMovement(firstBoxRef.current, capture.box),
+        },
       });
       if (!result.passed) {
         setError(result.failureReason || 'No pudimos confirmar que eres la misma persona.');
         setCaptures([]);
+        firstBoxRef.current = null;
+        resetBlink();
         return;
       }
       setSuccess('Rostro verificado correctamente.');
@@ -152,6 +209,8 @@ export function FaceCaptureStep({
     } catch (err) {
       setError(err.message || 'No se pudo completar la verificacion facial.');
       setCaptures([]);
+      firstBoxRef.current = null;
+      resetBlink();
     } finally {
       setLoading(false);
     }
@@ -159,9 +218,25 @@ export function FaceCaptureStep({
 
   const resetCaptures = () => {
     setCaptures([]);
+    firstBoxRef.current = null;
+    resetBlink();
     setError('');
     setSuccess('');
   };
+
+  const currentInstruction = multiCapture
+    ? ENROLL_STEPS[Math.min(captures.length, ENROLL_STEPS.length - 1)]
+    : blinkDetected
+      ? 'Parpadeo detectado. Ahora verifica tu rostro.'
+      : 'Parpadea una vez y mira directo a la camara.';
+
+  const buttonLabel = loading
+    ? loadingLabel
+    : !multiCapture && !blinkDetected
+      ? 'PARPADEA PARA CONTINUAR'
+      : multiCapture && captures.length < ENROLL_STEPS.length - 1
+        ? `CAPTURA ${captures.length + 1} DE ${ENROLL_STEPS.length}`
+        : submitLabel;
 
   return (
     <div className="space-y-4">
@@ -178,10 +253,14 @@ export function FaceCaptureStep({
         <video ref={videoRef} playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
         <div className="pointer-events-none absolute inset-6 rounded-full border border-white/25 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]" />
         <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-lg border border-white/10 bg-black/70 px-3 py-2 text-center text-xs font-medium leading-snug text-white backdrop-blur-sm sm:text-sm">
-          {multiCapture
-            ? CAPTURE_STEPS[Math.min(captures.length, CAPTURE_STEPS.length - 1)]
-            : 'Centra tu rostro dentro del cuadro.'}
+          {currentInstruction}
         </div>
+        {blinkDetected && (
+          <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1 rounded-full border border-green-400/30 bg-green-500/20 px-2 py-1 text-xs font-medium text-green-200">
+            <Eye className="h-3.5 w-3.5" />
+            Parpadeo
+          </div>
+        )}
         {!ready && !error && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
@@ -204,7 +283,7 @@ export function FaceCaptureStep({
 
       {multiCapture && (
         <div className="grid grid-cols-3 gap-2">
-          {CAPTURE_STEPS.map((step, index) => (
+          {ENROLL_STEPS.map((step, index) => (
             <div
               key={step}
               className={`h-1.5 rounded-full transition-colors ${index < captures.length ? 'bg-blue-500' : 'bg-white/10'}`}
@@ -216,15 +295,11 @@ export function FaceCaptureStep({
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={!ready || loading}
+        disabled={!ready || !modelsReady || loading || (!multiCapture && !blinkDetected)}
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#0055aa] active:scale-[0.98] disabled:opacity-50 sm:text-base"
       >
         {loading ? <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Camera className="h-5 w-5" />}
-        {loading
-          ? loadingLabel
-          : multiCapture && captures.length < CAPTURE_STEPS.length - 1
-            ? `CAPTURA ${captures.length + 1} DE ${CAPTURE_STEPS.length}`
-            : submitLabel}
+        {buttonLabel}
       </button>
 
       {captures.length > 0 && !loading && (

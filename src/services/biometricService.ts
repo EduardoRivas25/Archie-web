@@ -4,6 +4,7 @@ export interface FaceEnrollmentStatus {
   enrolled: boolean;
   status?: string;
   modelVersion?: string;
+  needsReenrollment?: boolean;
 }
 
 export interface FaceVerificationResult {
@@ -12,12 +13,18 @@ export interface FaceVerificationResult {
   threshold: number;
   modelVersion: string;
   failureReason?: string;
+  distance?: number;
 }
 
 export interface FaceCapturePayload {
   imageDataUrl: string;
-  descriptor: number[];
+  descriptor?: number[];
+  descriptors?: number[][];
   captures?: string[];
+  liveness?: {
+    blinkDetected: boolean;
+    movementDetected?: boolean;
+  };
 }
 
 export interface FaceModelsManifest {
@@ -89,12 +96,13 @@ export async function verifyFace(capture: FaceCapturePayload) {
 
   const payload = await readResponsePayload(response);
   if (response.status === 409) {
+    const failureReason = payload.code === 'REENROLL_REQUIRED' ? 'REENROLL_REQUIRED' : 'NO_ENROLLMENT';
     return {
       passed: false,
       score: 0,
-      threshold: 0.72,
-      modelVersion: 'insforge-image-descriptor-v1',
-      failureReason: 'NO_ENROLLMENT',
+      threshold: 0.58,
+      modelVersion: 'face-api-js-v1',
+      failureReason,
     };
   }
   if (!response.ok) {

@@ -1,8 +1,8 @@
 import type { VercelRequest } from '@vercel/node';
 import { createClient } from '@insforge/sdk';
 
-export const FACE_MODEL_VERSION = 'insforge-image-descriptor-v1';
-export const FACE_THRESHOLD = 0.72;
+export const FACE_MODEL_VERSION = 'face-api-js-v1';
+export const FACE_DISTANCE_THRESHOLD = 0.58;
 
 export function getServerInsforge(edgeFunctionToken?: string) {
   const baseUrl = process.env.INSFORGE_URL || process.env.VITE_INSFORGE_URL;
@@ -43,8 +43,15 @@ export function imageDataUrlToBuffer(imageDataUrl: string) {
   return Buffer.from(match[2], 'base64');
 }
 
+export interface FaceEnrollmentDescriptor {
+  version: string;
+  descriptors: number[][];
+  captureCount: number;
+  livenessRequired: boolean;
+}
+
 export function validateDescriptor(descriptor: unknown) {
-  if (!Array.isArray(descriptor) || descriptor.length !== 256) {
+  if (!Array.isArray(descriptor) || descriptor.length !== 128) {
     throw new Error('Descriptor facial invalido. Vuelve a capturar tu rostro.');
   }
 
@@ -57,21 +64,60 @@ export function validateDescriptor(descriptor: unknown) {
   });
 }
 
-export function compareDescriptors(a: number[], b: number[]) {
-  if (!a.length || a.length !== b.length) return 0;
-
-  let dot = 0;
-  let normA = 0;
-  let normB = 0;
-  for (let index = 0; index < a.length; index += 1) {
-    dot += a[index] * b[index];
-    normA += a[index] * a[index];
-    normB += b[index] * b[index];
+export function validateDescriptorSet(descriptors: unknown) {
+  if (!Array.isArray(descriptors) || descriptors.length !== 3) {
+    throw new Error('Se requieren 3 capturas faciales validas.');
   }
 
-  if (!normA || !normB) return 0;
-  const cosine = dot / (Math.sqrt(normA) * Math.sqrt(normB));
-  return Number(Math.max(0, Math.min(1, (cosine + 1) / 2)).toFixed(4));
+  return descriptors.map((descriptor) => validateDescriptor(descriptor));
+}
+
+export function validateLiveness(liveness: unknown, requireMovement = false) {
+  const payload = liveness as { blinkDetected?: unknown; movementDetected?: unknown } | null;
+  if (!payload?.blinkDetected) {
+    throw new Error('No se detecto parpadeo. Vuelve a intentarlo.');
+  }
+  if (requireMovement && !payload.movementDetected) {
+    throw new Error('No se detecto movimiento suficiente. Vuelve a registrar tu rostro.');
+  }
+}
+
+export function normalizeEnrollmentDescriptor(raw: unknown): FaceEnrollmentDescriptor | null {
+  const payload = raw as Partial<FaceEnrollmentDescriptor> | number[] | null;
+  if (!payload || Array.isArray(payload)) return null;
+  if (payload.version !== FACE_MODEL_VERSION || !Array.isArray(payload.descriptors)) return null;
+
+  return {
+    version: FACE_MODEL_VERSION,
+    descriptors: payload.descriptors.map((descriptor) => validateDescriptor(descriptor)),
+    captureCount: Number(payload.captureCount || payload.descriptors.length),
+    livenessRequired: payload.livenessRequired !== false,
+  };
+}
+
+export function compareDescriptorDistance(a: number[], b: number[]) {
+  if (!a.length || a.length !== b.length) return Number.POSITIVE_INFINITY;
+
+  let sum = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    sum += (a[index] - b[index]) ** 2;
+  }
+
+  return Number(Math.sqrt(sum).toFixed(6));
+}
+
+export function distanceToScore(distance: number) {
+  if (!Number.isFinite(distance)) return 0;
+  return Number(Math.max(0, Math.min(1, 1 - distance / 1.2)).toFixed(4));
+}
+
+export function compareAgainstEnrollment(descriptor: number[], enrollment: FaceEnrollmentDescriptor) {
+  const distances = enrollment.descriptors.map((stored) => compareDescriptorDistance(descriptor, stored));
+  const bestDistance = Math.min(...distances);
+  return {
+    distance: Number(bestDistance.toFixed(6)),
+    score: distanceToScore(bestDistance),
+  };
 }
 
 export async function uploadReferencePhoto(userId: string, imageDataUrl: string) {
@@ -106,7 +152,7 @@ export async function getActiveEnrollment(userId: string, edgeFunctionToken?: st
     id: string;
     user_id: string;
     model_version: string;
-    descriptor: number[];
+    descriptor: FaceEnrollmentDescriptor | number[];
     reference_photo_key: string;
     threshold: number;
     status: string;

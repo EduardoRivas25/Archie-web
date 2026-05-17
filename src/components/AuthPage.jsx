@@ -44,14 +44,14 @@ export function AuthPage() {
   const goToBiometricStep = async (enrollMessage, verifyMessage) => {
     try {
       const status = await getFaceEnrollmentStatus();
-      if (status.enrolled) {
+      if (status.enrolled && !status.needsReenrollment) {
         setMode('face-verify');
         setSuccess(verifyMessage);
       } else {
         setMode('face-enroll');
-        setSuccess(enrollMessage);
+        setSuccess(status.needsReenrollment ? 'Actualizamos el modelo facial. Registra tu rostro de nuevo para continuar.' : enrollMessage);
       }
-    } catch (err) {
+    } catch {
       setMode('face-enroll');
       setSuccess(enrollMessage);
     }
@@ -232,9 +232,11 @@ export function AuthPage() {
 
   const handleFaceVerify = async (imageDataUrl) => {
     const result = await verifyFace(imageDataUrl);
-    if (result.failureReason === 'NO_ENROLLMENT') {
+    if (result.failureReason === 'NO_ENROLLMENT' || result.failureReason === 'REENROLL_REQUIRED') {
       setMode('face-enroll');
-      setSuccess('Esta cuenta aun no tiene rostro registrado. Registralo para continuar.');
+      setSuccess(result.failureReason === 'REENROLL_REQUIRED'
+        ? 'Actualizamos el modelo facial. Registra tu rostro de nuevo para continuar.'
+        : 'Esta cuenta aun no tiene rostro registrado. Registralo para continuar.');
       return { ...result, failureReason: 'Registra tu rostro para continuar.' };
     }
     if (result.passed) {

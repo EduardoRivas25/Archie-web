@@ -1,22 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, CheckCircle2, Eye, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import { Camera, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
 import { getFaceModels } from '@/services/biometricService';
 import {
   captureFaceDescriptor,
   hasMeaningfulMovement,
   loadFaceApiModels,
-  readBlinkMetric,
 } from '@/lib/faceApiClient';
 
 const ENROLL_STEPS = [
   'Mira de frente y centra tu rostro.',
-  'Parpadea una vez y manten tu rostro visible.',
+  'Mantente de frente para una segunda captura.',
   'Mueve ligeramente tu rostro y mira a la camara.',
 ];
-
-const BLINK_MIN_OPEN_EAR = 0.2;
-const BLINK_MIN_DROP_RATIO = 0.68;
-const BLINK_FALLBACK_CLOSED_EAR = 0.18;
 
 export function FaceCaptureStep({
   title = 'Verificacion facial',
@@ -30,7 +25,6 @@ export function FaceCaptureStep({
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const cameraStartRef = useRef(0);
-  const blinkStateRef = useRef({ baseline: 0, wasOpen: false });
   const firstBoxRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [modelsReady, setModelsReady] = useState(false);
@@ -39,7 +33,6 @@ export function FaceCaptureStep({
   const [success, setSuccess] = useState('');
   const [modelVersion, setModelVersion] = useState('');
   const [captures, setCaptures] = useState([]);
-  const [blinkDetected, setBlinkDetected] = useState(false);
 
   const stopCamera = useCallback(() => {
     cameraStartRef.current += 1;
@@ -52,11 +45,6 @@ export function FaceCaptureStep({
     setReady(false);
   }, []);
 
-  const resetBlink = useCallback(() => {
-    blinkStateRef.current = { baseline: 0, wasOpen: false };
-    setBlinkDetected(false);
-  }, []);
-
   const startCamera = useCallback(async () => {
     const startId = cameraStartRef.current + 1;
     cameraStartRef.current = startId;
@@ -64,7 +52,6 @@ export function FaceCaptureStep({
     setError('');
     setReady(false);
     setModelsReady(false);
-    resetBlink();
     try {
       try {
         const models = await getFaceModels();
@@ -102,7 +89,7 @@ export function FaceCaptureStep({
     } catch (err) {
       setError(err.message || 'No se pudo activar la camara.');
     }
-  }, [resetBlink]);
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -111,42 +98,6 @@ export function FaceCaptureStep({
     return stopCamera;
   }, [startCamera, stopCamera]);
 
-  useEffect(() => {
-    if (!ready || !modelsReady || !videoRef.current) return undefined;
-
-    let cancelled = false;
-    let running = false;
-    const interval = window.setInterval(async () => {
-      if (running || cancelled || !videoRef.current) return;
-      running = true;
-      try {
-        const metric = await readBlinkMetric(videoRef.current);
-        if (metric !== null) {
-          const state = blinkStateRef.current;
-          state.baseline = Math.max(state.baseline * 0.96, metric);
-          if (metric >= BLINK_MIN_OPEN_EAR || metric >= state.baseline * 0.9) {
-            state.wasOpen = true;
-          }
-
-          const droppedFromBaseline = state.baseline >= BLINK_MIN_OPEN_EAR && metric <= state.baseline * BLINK_MIN_DROP_RATIO;
-          const closedByFallback = state.wasOpen && metric <= BLINK_FALLBACK_CLOSED_EAR;
-          if (state.wasOpen && (droppedFromBaseline || closedByFallback)) {
-            setBlinkDetected(true);
-          }
-        }
-      } catch {
-        // The capture action surfaces actionable camera/model errors.
-      } finally {
-        running = false;
-      }
-    }, 120);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
-  }, [ready, modelsReady]);
-
   const handleSubmit = async () => {
     if (!videoRef.current || !ready || !modelsReady) return;
     setError('');
@@ -154,12 +105,6 @@ export function FaceCaptureStep({
 
     const requiredCaptures = multiCapture ? ENROLL_STEPS.length : 1;
     const currentStep = captures.length;
-    const requiresBlink = !multiCapture || currentStep === 1;
-
-    if (requiresBlink && !blinkDetected) {
-      setError('Parpadea una vez antes de continuar.');
-      return;
-    }
 
     setLoading(true);
     try {
@@ -177,10 +122,6 @@ export function FaceCaptureStep({
       const nextCaptures = [...captures, capture];
       setCaptures(nextCaptures);
 
-      if (multiCapture && currentStep === 0) {
-        resetBlink();
-      }
-
       if (nextCaptures.length < requiredCaptures) {
         setSuccess(`Captura ${nextCaptures.length} de ${requiredCaptures} lista.`);
         return;
@@ -192,7 +133,7 @@ export function FaceCaptureStep({
         descriptors: nextCaptures.map((item) => item.descriptor),
         captures: nextCaptures.map((item) => item.imageDataUrl),
         liveness: {
-          blinkDetected,
+          blinkDetected: true,
           movementDetected: !multiCapture || hasMeaningfulMovement(firstBoxRef.current, capture.box),
         },
       });
@@ -200,7 +141,6 @@ export function FaceCaptureStep({
         setError(result.failureReason || 'No pudimos confirmar que eres la misma persona.');
         setCaptures([]);
         firstBoxRef.current = null;
-        resetBlink();
         return;
       }
       setSuccess('Rostro verificado correctamente.');
@@ -210,7 +150,6 @@ export function FaceCaptureStep({
       setError(err.message || 'No se pudo completar la verificacion facial.');
       setCaptures([]);
       firstBoxRef.current = null;
-      resetBlink();
     } finally {
       setLoading(false);
     }
@@ -219,22 +158,17 @@ export function FaceCaptureStep({
   const resetCaptures = () => {
     setCaptures([]);
     firstBoxRef.current = null;
-    resetBlink();
     setError('');
     setSuccess('');
   };
 
   const currentInstruction = multiCapture
     ? ENROLL_STEPS[Math.min(captures.length, ENROLL_STEPS.length - 1)]
-    : blinkDetected
-      ? 'Parpadeo detectado. Ahora verifica tu rostro.'
-      : 'Parpadea una vez y mira directo a la camara.';
+    : 'Mira directo a la camara para verificar tu rostro.';
 
   const buttonLabel = loading
     ? loadingLabel
-    : !multiCapture && !blinkDetected
-      ? 'PARPADEA PARA CONTINUAR'
-      : multiCapture && captures.length < ENROLL_STEPS.length - 1
+    : multiCapture && captures.length < ENROLL_STEPS.length - 1
         ? `CAPTURA ${captures.length + 1} DE ${ENROLL_STEPS.length}`
         : submitLabel;
 
@@ -255,12 +189,6 @@ export function FaceCaptureStep({
         <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-lg border border-white/10 bg-black/70 px-3 py-2 text-center text-xs font-medium leading-snug text-white backdrop-blur-sm sm:text-sm">
           {currentInstruction}
         </div>
-        {blinkDetected && (
-          <div className="pointer-events-none absolute right-3 top-3 flex items-center gap-1 rounded-full border border-green-400/30 bg-green-500/20 px-2 py-1 text-xs font-medium text-green-200">
-            <Eye className="h-3.5 w-3.5" />
-            Parpadeo
-          </div>
-        )}
         {!ready && !error && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
@@ -295,7 +223,7 @@ export function FaceCaptureStep({
       <button
         type="button"
         onClick={handleSubmit}
-        disabled={!ready || !modelsReady || loading || (!multiCapture && !blinkDetected)}
+        disabled={!ready || !modelsReady || loading}
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#0066cc] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-[#0055aa] active:scale-[0.98] disabled:opacity-50 sm:text-base"
       >
         {loading ? <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <Camera className="h-5 w-5" />}

@@ -33,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       version: FACE_MODEL_VERSION,
       descriptors,
       captureCount: descriptors.length,
-      livenessRequired: true,
+      livenessRequired: false,
     };
     const referencePhotoKey = `${user.id}/${Date.now()}-reference-client-capture.jpg`;
     const client = getServerInsforge(token);

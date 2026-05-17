@@ -74,9 +74,6 @@ export function validateDescriptorSet(descriptors: unknown) {
 
 export function validateLiveness(liveness: unknown, requireMovement = false) {
   const payload = liveness as { blinkDetected?: unknown; movementDetected?: unknown } | null;
-  if (!payload?.blinkDetected) {
-    throw new Error('No se detecto parpadeo. Vuelve a intentarlo.');
-  }
   if (requireMovement && !payload.movementDetected) {
     throw new Error('No se detecto movimiento suficiente. Vuelve a registrar tu rostro.');
   }

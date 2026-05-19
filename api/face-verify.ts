@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
-  compareAgainstEnrollment,
+  compareDescriptorSetAgainstEnrollment,
   FACE_DISTANCE_THRESHOLD,
   FACE_MODEL_VERSION,
   getActiveEnrollment,
   normalizeEnrollmentDescriptor,
   requireUser,
   saveVerificationAttempt,
-  validateDescriptor,
+  validateDescriptorSet,
   validateLiveness,
 } from './_face-utils.js';
 
@@ -38,35 +38,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!enrollment) {
-      await saveVerificationAttempt(user.id, 0, false, 'No hay rostro registrado.', token);
+      await saveVerificationAttempt(user.id, 0, false, 'No hay rostro registrado.', token, {
+        acceptedCaptures: 0,
+        technicalReason: 'La cuenta no tiene un registro facial activo.',
+      });
       return res.status(409).json({ error: 'No hay rostro registrado para esta cuenta.' });
     }
 
-    const { imageDataUrl, descriptor: rawDescriptor, liveness } = req.body ?? {};
+    const { imageDataUrl, descriptors: rawDescriptors, liveness } = req.body ?? {};
     if (!imageDataUrl || typeof imageDataUrl !== 'string') {
       return res.status(400).json({ error: 'Missing imageDataUrl.' });
     }
 
     const storedDescriptor = normalizeEnrollmentDescriptor(enrollment.descriptor);
     if (!storedDescriptor) {
-      await saveVerificationAttempt(user.id, 0, false, 'Registro facial incompatible. Re-registra tu rostro.', token);
+      await saveVerificationAttempt(user.id, 0, false, 'Registro facial incompatible. Re-registra tu rostro.', token, {
+        acceptedCaptures: 0,
+        technicalReason: 'El descriptor guardado no coincide con la version actual del modelo.',
+      });
       return res.status(409).json({ error: 'Registro facial incompatible. Re-registra tu rostro.', code: 'REENROLL_REQUIRED' });
     }
 
     validateLiveness(liveness);
-    const descriptor = validateDescriptor(rawDescriptor);
     const threshold = Number(enrollment.threshold || FACE_DISTANCE_THRESHOLD);
-    const { distance, score } = compareAgainstEnrollment(descriptor, storedDescriptor);
-    const passed = distance <= threshold;
-    const failureReason = passed ? null : 'El rostro no coincide con el registro.';
+    if (!Array.isArray(rawDescriptors)) {
+      return res.status(400).json({ error: 'Se requieren 3 capturas faciales validas.' });
+    }
+    const comparison = compareDescriptorSetAgainstEnrollment(
+      validateDescriptorSet(rawDescriptors),
+      storedDescriptor,
+      threshold
+    );
+    const failureReason = comparison.passed
+      ? null
+      : comparison.acceptedCaptures > 0
+        ? 'No hubo suficientes capturas consistentes. Centra tu rostro, mejora la luz e intenta de nuevo.'
+        : 'El rostro no coincide con el registro. Revisa la luz, mira de frente y vuelve a intentar.';
 
-    await saveVerificationAttempt(user.id, score, passed, failureReason, token);
+    await saveVerificationAttempt(user.id, comparison.score, comparison.passed, failureReason, token, {
+      distance: comparison.distance,
+      threshold,
+      acceptedCaptures: comparison.acceptedCaptures,
+      technicalReason: comparison.technicalReason,
+    });
 
     return res.status(200).json({
-      passed,
-      score,
+      passed: comparison.passed,
+      score: comparison.score,
       threshold,
-      distance,
+      distance: comparison.distance,
+      acceptedCaptures: comparison.acceptedCaptures,
+      requiredCaptures: comparison.requiredCaptures,
+      averageDistance: comparison.averageDistance,
       modelVersion: enrollment.model_version,
       failureReason: failureReason || undefined,
     });

@@ -14,6 +14,9 @@ export interface FaceVerificationResult {
   modelVersion: string;
   failureReason?: string;
   distance?: number;
+  acceptedCaptures?: number;
+  requiredCaptures?: number;
+  averageDistance?: number;
 }
 
 export interface FaceCapturePayload {
@@ -22,7 +25,7 @@ export interface FaceCapturePayload {
   descriptors?: number[][];
   captures?: string[];
   liveness?: {
-    blinkDetected: boolean;
+    blinkDetected?: boolean;
     movementDetected?: boolean;
   };
 }
@@ -62,7 +65,7 @@ function throwApiError(response: Response, payload: Record<string, unknown>, fal
   throw new Error(`[${response.status}] ${String(message)}`);
 }
 
-async function postJson<T>(url: string, body: Record<string, unknown>): Promise<T> {
+async function postJson<T>(url: string, body: unknown): Promise<T> {
   const response = await fetch(url, {
     method: 'POST',
     headers: authHeaders(),
@@ -102,6 +105,8 @@ export async function verifyFace(capture: FaceCapturePayload) {
       score: 0,
       threshold: 0.58,
       modelVersion: 'face-api-js-v1',
+      acceptedCaptures: 0,
+      requiredCaptures: 2,
       failureReason,
     };
   }

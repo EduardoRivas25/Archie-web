@@ -4,6 +4,7 @@ import { getFaceModels } from '@/services/biometricService';
 import {
   captureFaceDescriptor,
   hasMeaningfulMovement,
+  hasStableFacePosition,
   loadFaceApiModels,
 } from '@/lib/faceApiClient';
 
@@ -11,6 +12,12 @@ const ENROLL_STEPS = [
   'Mira de frente y centra tu rostro.',
   'Mantente de frente para una segunda captura.',
   'Mueve ligeramente tu rostro y mira a la camara.',
+];
+
+const VERIFY_STEPS = [
+  'Mira de frente y centra tu rostro.',
+  'Mantente quieto para confirmar la coincidencia.',
+  'Ultima captura: mira directo a la camara.',
 ];
 
 export function FaceCaptureStep({
@@ -21,6 +28,7 @@ export function FaceCaptureStep({
   onSubmit,
   onSuccess,
   multiCapture = true,
+  captureCount = 3,
 }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -103,7 +111,7 @@ export function FaceCaptureStep({
     setError('');
     setSuccess('');
 
-    const requiredCaptures = multiCapture ? ENROLL_STEPS.length : 1;
+    const requiredCaptures = multiCapture ? ENROLL_STEPS.length : captureCount;
     const currentStep = captures.length;
 
     setLoading(true);
@@ -116,6 +124,11 @@ export function FaceCaptureStep({
 
       if (multiCapture && currentStep === 2 && !hasMeaningfulMovement(firstBoxRef.current, capture.box)) {
         setError('Mueve ligeramente tu rostro antes de la tercera captura.');
+        return;
+      }
+
+      if (!multiCapture && currentStep > 0 && !hasStableFacePosition(captures[currentStep - 1]?.box, capture.box)) {
+        setError('Mantente estable frente a la camara y repite la captura.');
         return;
       }
 
@@ -133,8 +146,7 @@ export function FaceCaptureStep({
         descriptors: nextCaptures.map((item) => item.descriptor),
         captures: nextCaptures.map((item) => item.imageDataUrl),
         liveness: {
-          blinkDetected: true,
-          movementDetected: !multiCapture || hasMeaningfulMovement(firstBoxRef.current, capture.box),
+          movementDetected: multiCapture ? hasMeaningfulMovement(firstBoxRef.current, capture.box) : undefined,
         },
       });
       if (!result.passed) {
@@ -164,12 +176,12 @@ export function FaceCaptureStep({
 
   const currentInstruction = multiCapture
     ? ENROLL_STEPS[Math.min(captures.length, ENROLL_STEPS.length - 1)]
-    : 'Mira directo a la camara para verificar tu rostro.';
+    : VERIFY_STEPS[Math.min(captures.length, VERIFY_STEPS.length - 1)];
 
   const buttonLabel = loading
     ? loadingLabel
-    : multiCapture && captures.length < ENROLL_STEPS.length - 1
-        ? `CAPTURA ${captures.length + 1} DE ${ENROLL_STEPS.length}`
+    : captures.length < (multiCapture ? ENROLL_STEPS.length : captureCount) - 1
+        ? `CAPTURA ${captures.length + 1} DE ${multiCapture ? ENROLL_STEPS.length : captureCount}`
         : submitLabel;
 
   return (
@@ -209,9 +221,9 @@ export function FaceCaptureStep({
         </div>
       )}
 
-      {multiCapture && (
+      {(multiCapture || captureCount > 1) && (
         <div className="grid grid-cols-3 gap-2">
-          {ENROLL_STEPS.map((step, index) => (
+          {(multiCapture ? ENROLL_STEPS : VERIFY_STEPS).map((step, index) => (
             <div
               key={step}
               className={`h-1.5 rounded-full transition-colors ${index < captures.length ? 'bg-blue-500' : 'bg-white/10'}`}

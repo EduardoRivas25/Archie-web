@@ -3,6 +3,8 @@ import { createClient } from '@insforge/sdk';
 
 export const FACE_MODEL_VERSION = 'face-api-js-v1';
 export const FACE_DISTANCE_THRESHOLD = 0.58;
+export const FACE_VERIFICATION_CAPTURE_COUNT = 3;
+export const FACE_VERIFICATION_REQUIRED_MATCHES = 2;
 
 export function getServerInsforge(edgeFunctionToken?: string) {
   const baseUrl = process.env.INSFORGE_URL || process.env.VITE_INSFORGE_URL;
@@ -65,7 +67,7 @@ export function validateDescriptor(descriptor: unknown) {
 }
 
 export function validateDescriptorSet(descriptors: unknown) {
-  if (!Array.isArray(descriptors) || descriptors.length !== 3) {
+  if (!Array.isArray(descriptors) || descriptors.length !== FACE_VERIFICATION_CAPTURE_COUNT) {
     throw new Error('Se requieren 3 capturas faciales validas.');
   }
 
@@ -74,7 +76,7 @@ export function validateDescriptorSet(descriptors: unknown) {
 
 export function validateLiveness(liveness: unknown, requireMovement = false) {
   const payload = liveness as { blinkDetected?: unknown; movementDetected?: unknown } | null;
-  if (requireMovement && !payload.movementDetected) {
+  if (requireMovement && !payload?.movementDetected) {
     throw new Error('No se detecto movimiento suficiente. Vuelve a registrar tu rostro.');
   }
 }
@@ -114,6 +116,30 @@ export function compareAgainstEnrollment(descriptor: number[], enrollment: FaceE
   return {
     distance: Number(bestDistance.toFixed(6)),
     score: distanceToScore(bestDistance),
+  };
+}
+
+export function compareDescriptorSetAgainstEnrollment(
+  descriptors: number[][],
+  enrollment: FaceEnrollmentDescriptor,
+  threshold: number
+) {
+  const results = descriptors.map((descriptor) => compareAgainstEnrollment(descriptor, enrollment));
+  const acceptedCaptures = results.filter((result) => result.distance <= threshold).length;
+  const bestDistance = Math.min(...results.map((result) => result.distance));
+  const averageDistance = results.reduce((sum, result) => sum + result.distance, 0) / results.length;
+  const passed = acceptedCaptures >= FACE_VERIFICATION_REQUIRED_MATCHES;
+
+  return {
+    acceptedCaptures,
+    requiredCaptures: FACE_VERIFICATION_REQUIRED_MATCHES,
+    distance: Number(bestDistance.toFixed(6)),
+    averageDistance: Number(averageDistance.toFixed(6)),
+    score: distanceToScore(bestDistance),
+    passed,
+    technicalReason: passed
+      ? null
+      : `Solo ${acceptedCaptures} de ${FACE_VERIFICATION_CAPTURE_COUNT} capturas coincidieron dentro del umbral.`,
   };
 }
 
@@ -161,18 +187,53 @@ export async function saveVerificationAttempt(
   score: number,
   passed: boolean,
   failureReason: string | null,
-  edgeFunctionToken?: string
+  edgeFunctionToken?: string,
+  diagnostics?: {
+    distance?: number;
+    threshold?: number;
+    acceptedCaptures?: number;
+    technicalReason?: string | null;
+  }
 ) {
   const client = getServerInsforge(edgeFunctionToken);
+  const attemptPayload = {
+    user_id: userId,
+    model_version: FACE_MODEL_VERSION,
+    score,
+    passed,
+    failure_reason: failureReason,
+    distance: diagnostics?.distance,
+    threshold: diagnostics?.threshold,
+    accepted_captures: diagnostics?.acceptedCaptures,
+    technical_reason: diagnostics?.technicalReason,
+  };
   const { error } = await client.database
     .from('face_verification_attempts')
-    .insert([{
-      user_id: userId,
-      model_version: FACE_MODEL_VERSION,
-      score,
-      passed,
-      failure_reason: failureReason,
-    }]);
+    .insert([attemptPayload]);
+
+  if (error && diagnostics) {
+    const message = String(error.message || '');
+    const likelyMissingDiagnosticsColumns =
+      message.includes('distance') ||
+      message.includes('threshold') ||
+      message.includes('accepted_captures') ||
+      message.includes('technical_reason') ||
+      message.includes('schema cache');
+
+    if (likelyMissingDiagnosticsColumns) {
+      const { error: retryError } = await client.database
+        .from('face_verification_attempts')
+        .insert([{
+          user_id: userId,
+          model_version: FACE_MODEL_VERSION,
+          score,
+          passed,
+          failure_reason: failureReason,
+        }]);
+
+      if (!retryError) return;
+    }
+  }
 
   if (error) {
     throw new Error(`No se pudo registrar el intento facial. Ejecuta setup_biometrics.sql en InsForge. Detalle: ${error.message}`);

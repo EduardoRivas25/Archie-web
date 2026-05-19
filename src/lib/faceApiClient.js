@@ -107,6 +107,22 @@ export function hasMeaningfulMovement(firstBox, currentBox) {
   return centerDelta > firstBox.width * 0.08 || sizeDelta > firstBox.width * 0.08;
 }
 
+export function hasStableFacePosition(previousBox, currentBox) {
+  if (!previousBox || !currentBox) return true;
+  const centerA = {
+    x: previousBox.x + previousBox.width / 2,
+    y: previousBox.y + previousBox.height / 2,
+  };
+  const centerB = {
+    x: currentBox.x + currentBox.width / 2,
+    y: currentBox.y + currentBox.height / 2,
+  };
+  const centerDelta = distance(centerA, centerB);
+  const sizeDelta = Math.abs(currentBox.width - previousBox.width);
+  const referenceWidth = Math.max(previousBox.width, 1);
+  return centerDelta <= referenceWidth * 0.16 && sizeDelta <= referenceWidth * 0.18;
+}
+
 export async function readBlinkMetric(video) {
   await loadFaceApiModels();
   const detection = await faceapi

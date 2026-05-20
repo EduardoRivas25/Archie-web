@@ -2,9 +2,12 @@ import type { VercelRequest } from '@vercel/node';
 import { createClient } from '@insforge/sdk';
 
 export const FACE_MODEL_VERSION = 'face-api-js-v1';
-export const FACE_DISTANCE_THRESHOLD = 0.58;
+export const FACE_DISTANCE_THRESHOLD = 0.46;
 export const FACE_VERIFICATION_CAPTURE_COUNT = 3;
-export const FACE_VERIFICATION_REQUIRED_MATCHES = 2;
+export const FACE_VERIFICATION_REQUIRED_MATCHES = 3;
+// Varianza mínima entre descriptores: si todas las capturas son casi idénticas
+// (foto estática), la std dev de sus distancias internas será < este umbral.
+export const FACE_DESCRIPTOR_VARIANCE_THRESHOLD = 0.018;
 
 export function getServerInsforge(edgeFunctionToken?: string) {
   const baseUrl = process.env.INSFORGE_URL || process.env.VITE_INSFORGE_URL;
@@ -110,13 +113,38 @@ export function distanceToScore(distance: number) {
   return Number(Math.max(0, Math.min(1, 1 - distance / 1.2)).toFixed(4));
 }
 
+/**
+ * Calcula la distancia promedio ponderada entre el descriptor capturado y TODOS
+ * los descriptores enrollados (no solo el mejor). Esto evita que una captura
+ * aislada que coincida con uno solo de los descriptores sea suficiente.
+ */
 export function compareAgainstEnrollment(descriptor: number[], enrollment: FaceEnrollmentDescriptor) {
   const distances = enrollment.descriptors.map((stored) => compareDescriptorDistance(descriptor, stored));
   const bestDistance = Math.min(...distances);
+  // Promedio ponderado: 60% mejor + 40% promedio general para mayor robustez
+  const avgDistance = distances.reduce((s, d) => s + d, 0) / distances.length;
+  const weightedDistance = bestDistance * 0.6 + avgDistance * 0.4;
   return {
-    distance: Number(bestDistance.toFixed(6)),
-    score: distanceToScore(bestDistance),
+    distance: Number(weightedDistance.toFixed(6)),
+    score: distanceToScore(weightedDistance),
   };
+}
+
+/**
+ * Detecta si un conjunto de descriptores proviene de una foto estática.
+ * Capturas reales tienen varianza interna (el usuario se movió ligeramente).
+ * Una foto impresa o pantalla produce descriptores casi idénticos.
+ */
+export function hasDescriptorVariance(descriptors: number[][]): boolean {
+  if (descriptors.length < 2) return true;
+  const pairDistances: number[] = [];
+  for (let i = 0; i < descriptors.length; i++) {
+    for (let j = i + 1; j < descriptors.length; j++) {
+      pairDistances.push(compareDescriptorDistance(descriptors[i], descriptors[j]));
+    }
+  }
+  const avg = pairDistances.reduce((s, d) => s + d, 0) / pairDistances.length;
+  return avg >= FACE_DESCRIPTOR_VARIANCE_THRESHOLD;
 }
 
 export function compareDescriptorSetAgainstEnrollment(

@@ -1,9 +1,12 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   compareDescriptorSetAgainstEnrollment,
+  FACE_DESCRIPTOR_VARIANCE_THRESHOLD,
   FACE_DISTANCE_THRESHOLD,
   FACE_MODEL_VERSION,
   getActiveEnrollment,
+  getServerInsforge,
+  hasDescriptorVariance,
   normalizeEnrollmentDescriptor,
   requireUser,
   saveVerificationAttempt,
@@ -45,6 +48,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(409).json({ error: 'No hay rostro registrado para esta cuenta.' });
     }
 
+    // ── Rate limiting: máximo 3 intentos fallidos en 5 minutos ─────────────────
+    try {
+      const client = getServerInsforge(token);
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: recentAttempts } = await client.database
+        .from('face_verification_attempts')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('passed', false)
+        .gte('created_at', fiveMinutesAgo);
+      if (Array.isArray(recentAttempts) && recentAttempts.length >= 3) {
+        return res.status(429).json({
+          error: 'Demasiados intentos fallidos. Espera 5 minutos antes de volver a intentarlo.',
+          code: 'RATE_LIMITED',
+        });
+      }
+    } catch {
+      // Si falla la consulta de rate limiting, no bloqueamos al usuario
+    }
+
     const { imageDataUrl, descriptors: rawDescriptors, liveness } = req.body ?? {};
     if (!imageDataUrl || typeof imageDataUrl !== 'string') {
       return res.status(400).json({ error: 'Missing imageDataUrl.' });
@@ -59,13 +82,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(409).json({ error: 'Registro facial incompatible. Re-registra tu rostro.', code: 'REENROLL_REQUIRED' });
     }
 
-    validateLiveness(liveness);
-    const threshold = Number(enrollment.threshold || FACE_DISTANCE_THRESHOLD);
+    // ── Liveness obligatorio: exigir movimiento real entre capturas ────────────
+    validateLiveness(liveness, true);
+
     if (!Array.isArray(rawDescriptors)) {
       return res.status(400).json({ error: 'Se requieren 3 capturas faciales validas.' });
     }
+    const validatedDescriptors = validateDescriptorSet(rawDescriptors);
+
+    // ── Anti-foto estática: descriptores deben tener varianza suficiente ──────
+    if (!hasDescriptorVariance(validatedDescriptors)) {
+      await saveVerificationAttempt(user.id, 0, false, 'Foto estática detectada.', token, {
+        acceptedCaptures: 0,
+        technicalReason: `Las capturas son demasiado similares entre sí (varianza < ${FACE_DESCRIPTOR_VARIANCE_THRESHOLD}). Posible foto estática.`,
+      });
+      return res.status(403).json({
+        passed: false,
+        score: 0,
+        threshold: FACE_DISTANCE_THRESHOLD,
+        modelVersion: FACE_MODEL_VERSION,
+        failureReason: 'Detectamos que las capturas no provienen de una persona real. Mira de frente y mueve ligeramente la cabeza.',
+      });
+    }
+
+    const threshold = Number(enrollment.threshold || FACE_DISTANCE_THRESHOLD);
     const comparison = compareDescriptorSetAgainstEnrollment(
-      validateDescriptorSet(rawDescriptors),
+      validatedDescriptors,
       storedDescriptor,
       threshold
     );

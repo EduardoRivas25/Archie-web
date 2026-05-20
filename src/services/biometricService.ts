@@ -103,12 +103,28 @@ export async function verifyFace(capture: FaceCapturePayload) {
     return {
       passed: false,
       score: 0,
-      threshold: 0.58,
+      threshold: 0.46,
       modelVersion: 'face-api-js-v1',
       acceptedCaptures: 0,
-      requiredCaptures: 2,
+      requiredCaptures: 3,
       failureReason,
     };
+  }
+  // Rate limiting: demasiados intentos fallidos
+  if (response.status === 429) {
+    return {
+      passed: false,
+      score: 0,
+      threshold: 0.46,
+      modelVersion: 'face-api-js-v1',
+      acceptedCaptures: 0,
+      requiredCaptures: 3,
+      failureReason: 'RATE_LIMITED',
+    };
+  }
+  // Anti-foto estática detectada en el servidor
+  if (response.status === 403 && payload.failureReason) {
+    return payload as FaceVerificationResult;
   }
   if (!response.ok) {
     throwApiError(response, payload, 'Error biometrico.');

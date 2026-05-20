@@ -2,8 +2,8 @@ import * as faceapi from 'face-api.js';
 
 const MODEL_URL = '/models/face-api';
 const DETECTOR_OPTIONS = new faceapi.TinyFaceDetectorOptions({
-  inputSize: 224,
-  scoreThreshold: 0.5,
+  inputSize: 320,
+  scoreThreshold: 0.62,
 });
 
 let modelsPromise;
@@ -81,13 +81,14 @@ function validateQuality(detection, video, brightness) {
   const centeredX = Math.abs(centerX - videoWidth / 2) / videoWidth;
   const centeredY = Math.abs(centerY - videoHeight / 2) / videoHeight;
 
-  if (faceSide / minVideoSide < 0.22) {
+  // Umbral más alto: el rostro debe ocupar al menos 28% del encuadre
+  if (faceSide / minVideoSide < 0.28) {
     throw new Error('Acercate un poco mas a la camara.');
   }
-  if (centeredX > 0.22 || centeredY > 0.22) {
+  if (centeredX > 0.20 || centeredY > 0.20) {
     throw new Error('Centra tu rostro dentro del cuadro.');
   }
-  if (brightness < 0.18) {
+  if (brightness < 0.20) {
     throw new Error('Hay poca luz. Ilumina mejor tu rostro.');
   }
 }
@@ -105,6 +106,27 @@ export function hasMeaningfulMovement(firstBox, currentBox) {
   const centerDelta = distance(centerA, centerB);
   const sizeDelta = Math.abs(currentBox.width - firstBox.width);
   return centerDelta > firstBox.width * 0.08 || sizeDelta > firstBox.width * 0.08;
+}
+
+/**
+ * Verifica que un conjunto de descriptores tenga suficiente varianza interna.
+ * Si todos los descriptores son casi idénticos, probablemente vienen de una
+ * foto estática (impresa o en pantalla). Umbral: distancia promedio >= 0.018.
+ */
+export function hasDescriptorVariance(descriptors) {
+  if (!descriptors || descriptors.length < 2) return true;
+  const pairDistances = [];
+  for (let i = 0; i < descriptors.length; i++) {
+    for (let j = i + 1; j < descriptors.length; j++) {
+      const a = descriptors[i];
+      const b = descriptors[j];
+      let sum = 0;
+      for (let k = 0; k < a.length; k++) sum += (a[k] - b[k]) ** 2;
+      pairDistances.push(Math.sqrt(sum));
+    }
+  }
+  const avg = pairDistances.reduce((s, d) => s + d, 0) / pairDistances.length;
+  return avg >= 0.018;
 }
 
 export function hasStableFacePosition(previousBox, currentBox) {

@@ -239,6 +239,9 @@ export function AuthPage() {
         : 'Esta cuenta aun no tiene rostro registrado. Registralo para continuar.');
       return { ...result, failureReason: 'Registra tu rostro para continuar.' };
     }
+    if (result.failureReason === 'RATE_LIMITED') {
+      return { ...result, failureReason: 'Demasiados intentos fallidos. Espera 5 minutos e intenta de nuevo.' };
+    }
     if (result.passed) {
       await completeBiometricVerification();
     }
@@ -488,12 +491,12 @@ export function AuthPage() {
           {mode === 'face-verify' && (
             <FaceCaptureStep
               title="Verifica tu rostro"
-              description="Despues de tus credenciales, necesitamos confirmar tu identidad."
+              description="Realiza 3 capturas con leve movimiento para confirmar que eres tu."
               submitLabel="VERIFICAR ROSTRO"
               loadingLabel="Verificando..."
               onSubmit={handleFaceVerify}
               onSuccess={handleFaceSuccess}
-              multiCapture={false}
+              multiCapture
             />
           )}
 

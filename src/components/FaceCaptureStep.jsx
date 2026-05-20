@@ -3,6 +3,7 @@ import { Camera, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-re
 import { getFaceModels } from '@/services/biometricService';
 import {
   captureFaceDescriptor,
+  hasDescriptorVariance,
   hasMeaningfulMovement,
   hasStableFacePosition,
   loadFaceApiModels,
@@ -14,10 +15,11 @@ const ENROLL_STEPS = [
   'Mueve ligeramente tu rostro y mira a la camara.',
 ];
 
+// La verificación ahora también exige movimiento real (anti-foto estática)
 const VERIFY_STEPS = [
   'Mira de frente y centra tu rostro.',
-  'Mantente quieto para confirmar la coincidencia.',
-  'Ultima captura: mira directo a la camara.',
+  'Mueve levemente la cabeza y vuelve al frente.',
+  'Ultima captura: leve movimiento y mira directo a la camara.',
 ];
 
 export function FaceCaptureStep({
@@ -122,8 +124,13 @@ export function FaceCaptureStep({
         firstBoxRef.current = capture.box;
       }
 
-      if (multiCapture && currentStep === 2 && !hasMeaningfulMovement(firstBoxRef.current, capture.box)) {
-        setError('Mueve ligeramente tu rostro antes de la tercera captura.');
+      // En ambos modos: exigir movimiento desde la primera captura en adelante
+      if (currentStep === 0) {
+        firstBoxRef.current = capture.box;
+      }
+
+      if (currentStep === 2 && !hasMeaningfulMovement(firstBoxRef.current, capture.box)) {
+        setError('Mueve ligeramente tu rostro antes de la última captura.');
         return;
       }
 
@@ -137,6 +144,15 @@ export function FaceCaptureStep({
 
       if (nextCaptures.length < requiredCaptures) {
         setSuccess(`Captura ${nextCaptures.length} de ${requiredCaptures} lista.`);
+        return;
+      }
+
+      // ── Validación client-side de varianza (bloqueo previo al servidor) ──────
+      const allDescriptors = nextCaptures.map((item) => item.descriptor);
+      if (!hasDescriptorVariance(allDescriptors)) {
+        setError('Las capturas son demasiado similares. Mira de frente y mueve ligeramente la cabeza entre cada captura.');
+        setCaptures([]);
+        firstBoxRef.current = null;
         return;
       }
 

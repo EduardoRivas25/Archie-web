@@ -292,3 +292,124 @@
   vertical-align: text-bottom;
   animation: blink-cursor 0.8s step-end infinite;
 }
+
+/* ─── Face Capture Step UI ─────────────────────────────────────────── */
+
+/* Step indicator cards */
+.face-steps-container {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.face-step-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+}
+
+.face-step-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.face-step-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Pending step */
+.face-step-pending {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.06);
+  opacity: 0.45;
+}
+.face-step-pending .face-step-label {
+  color: #9ca3af;
+}
+
+/* Active step */
+.face-step-active {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.35);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.15);
+  animation: face-step-pulse 2s ease-in-out infinite;
+}
+.face-step-active .face-step-label {
+  color: #93c5fd;
+}
+
+/* Done step */
+.face-step-done {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.25);
+}
+.face-step-done .face-step-label {
+  color: #86efac;
+}
+
+@keyframes face-step-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(59, 130, 246, 0.15); }
+  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+}
+
+/* Progress bar */
+.face-progress-bar {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.face-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #3b82f6, #60a5fa);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Feedback messages */
+.face-feedback-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  font-size: 0.875rem;
+  animation: face-feedback-in 0.3s ease-out;
+}
+
+.face-feedback-success {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.08);
+  color: #86efac;
+  font-size: 0.875rem;
+  animation: face-feedback-in 0.3s ease-out;
+}
+
+@keyframes face-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

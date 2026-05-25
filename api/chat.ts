@@ -23,8 +23,8 @@ interface ReglaExperta {
 }
 // ─── Diccionarios de Palabras Clave ───────────────────────────────
 const PALABRAS_TEMA: Record<string, string[]> = {
-  programming: ['programacion','codigo','funcion','variable','array','loop','bucle','for','while','if','else','clase','objeto','python','javascript','java','c++','typescript','html','css','react','algoritmo','recursion','closure','promise','async','api','git','debug'],
-  math: ['matematicas','ecuacion','integral','derivada','limite','matriz','vector','trigonometria','seno','coseno','algebra','calculo','geometria','probabilidad','estadistica','logaritmo','exponencial','polinomio','factorial'],
+  programming: ['programacion','codigo','funcion','variable','array','loop','bucle','for','while','if','else','clase','objeto','python','javascript','java','c++','typescript','html','css','react','algoritmo','recursion','closure','promise','async','api','git','debug','pila','cola','arbol','grafo','singleton','docker','test','testing','design pattern'],
+  math: ['matematicas','ecuacion','integral','derivada','limite','matriz','vector','trigonometria','seno','coseno','algebra','calculo','geometria','probabilidad','estadistica','logaritmo','exponencial','polinomio','factorial','complejo','imaginario','area','perimetro','circulo','triangulo','pitagoras'],
   networking: ['red','redes','osi','tcp','ip','protocolo','router','switch','firewall','dns','http','https','puerto','subred','ethernet','wifi'],
   conversational: ['hola', 'buenos', 'buenas', 'que tal', 'saludos', 'hey', 'gracias', 'agradezco', 'adios', 'chao', 'vemos', 'hasta luego', 'bye'],
 };
@@ -49,6 +49,12 @@ const PALABRAS_SUBTEMA: Record<string, string[]> = {
   statistics: ['estadistica', 'probabilidad', 'media', 'mediana', 'varianza', 'desviacion', 'distribucion', 'bayes'],
   osi_model: ['osi','capas osi','modelo osi','siete capas','7 capas'],
   tcp_ip: ['tcp','udp','protocolo internet','ipv4','ipv6','handshake'],
+  data_structures: ['pila', 'cola', 'arbol', 'grafo', 'stack', 'queue', 'linked list', 'lista enlazada', 'nodo', 'estructura de datos'],
+  design_patterns: ['patron de diseno', 'singleton', 'factory', 'observer', 'builder', 'decorator', 'mvc'],
+  testing: ['test', 'prueba unitaria', 'testing', 'unit test', 'jest', 'mocha', 'cypress', 'junit', 'assert'],
+  docker_devops: ['docker', 'contenedor', 'kubernetes', 'k8s', 'ci/cd', 'devops', 'pipelines', 'ansible', 'terraform'],
+  geometry: ['geometria', 'area', 'perimetro', 'volumen', 'triangulo', 'circulo', 'pitagoras', 'poligono'],
+  complex_numbers: ['numero complejo', 'imaginario', 'complejos', 'parte real', 'parte imaginaria', 'i', 'fase', 'modulo'],
   greeting: ['hola', 'buenos', 'buenas', 'que tal', 'saludos', 'hey'],
   thanks: ['gracias', 'agradezco', 'te lo agradezco', 'perfecto'],
   goodbye: ['adios', 'chao', 'nos vemos', 'hasta luego', 'bye', 'pronto'],

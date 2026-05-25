@@ -63,20 +63,23 @@ export function FaceCaptureStep({
     setReady(false);
     setModelsReady(false);
     try {
-      try {
-        const models = await getFaceModels();
-        setModelVersion(models.modelVersion || 'face-api-js-v1');
-      } catch {
-        setModelVersion('face-api-js-v1');
-      }
+      // Load models + camera in parallel for faster startup on mobile
+      const isMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+      const idealSize = isMobile ? 480 : 720;
 
-      await loadFaceApiModels();
-      setModelsReady(true);
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 720 }, height: { ideal: 720 } },
-        audio: false,
-      });
+      const [, , stream] = await Promise.all([
+        // 1. Face models version (non-critical)
+        getFaceModels()
+          .then((m) => setModelVersion(m.modelVersion || 'face-api-js-v1'))
+          .catch(() => setModelVersion('face-api-js-v1')),
+        // 2. Face-api neural network models
+        loadFaceApiModels().then(() => setModelsReady(true)),
+        // 3. Camera stream
+        navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: idealSize }, height: { ideal: idealSize } },
+          audio: false,
+        }),
+      ]);
 
       if (cameraStartRef.current !== startId) {
         stream.getTracks().forEach((track) => track.stop());
@@ -232,28 +235,34 @@ export function FaceCaptureStep({
         </div>
       )}
 
-      <div className="relative mx-auto h-[clamp(210px,42dvh,320px)] w-full max-w-[320px] overflow-hidden rounded-xl border border-white/10 bg-[#101010] shadow-inner sm:aspect-square sm:h-auto sm:max-h-none sm:max-w-none">
-        <video ref={videoRef} playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
-        <div className={`pointer-events-none absolute inset-6 rounded-full border-2 shadow-[0_0_0_999px_rgba(0,0,0,0.22)] transition-colors duration-500 ${
+      <div className="relative mx-auto h-[clamp(200px,40dvh,320px)] w-full max-w-[320px] overflow-hidden rounded-xl border border-white/10 bg-[#101010] shadow-inner sm:aspect-square sm:h-auto sm:max-h-none sm:max-w-none">
+        <video ref={videoRef} autoPlay playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
+        <div className={`pointer-events-none absolute inset-4 sm:inset-6 rounded-full border-2 shadow-[0_0_0_999px_rgba(0,0,0,0.22)] transition-colors duration-500 ${
           error ? 'border-red-400/60' : captures.length >= steps.length ? 'border-green-400/60' : 'border-blue-400/40'
         }`} />
-        {/* Instruction overlay on video */}
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-xl border border-white/10 bg-black/75 px-4 py-3 text-center backdrop-blur-md">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-lg leading-none">{currentStepData.icon}</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-blue-300">
-              Paso {Math.min(captures.length + 1, steps.length)} — {currentStepData.label}
+        {/* Compact step badge on video — no long text to avoid overlap */}
+        <div className="pointer-events-none absolute inset-x-2 bottom-2 sm:inset-x-3 sm:bottom-3 rounded-lg bg-black/70 px-3 py-1.5 sm:py-2 text-center">
+          <div className="flex items-center justify-center gap-1.5">
+            <span className="text-base leading-none sm:text-lg">{currentStepData.icon}</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-300 sm:text-xs">
+              Paso {Math.min(captures.length + 1, steps.length)}/{steps.length} — {currentStepData.label}
             </span>
           </div>
-          <p className="mt-1 text-xs font-medium leading-snug text-white/90 sm:text-sm">
-            {currentStepData.instruction}
-          </p>
         </div>
         {!ready && !error && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/60">
             <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+            <span className="text-xs text-gray-300">Cargando cámara y modelos…</span>
           </div>
         )}
+      </div>
+
+      {/* Instruction card BELOW the video — prevents overlap on mobile */}
+      <div className="face-instruction-card">
+        <span className="text-base leading-none">{currentStepData.icon}</span>
+        <p className="text-xs font-medium leading-snug text-white/90 sm:text-sm">
+          {currentStepData.instruction}
+        </p>
       </div>
 
       {error && (

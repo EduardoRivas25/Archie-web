@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, CheckCircle2, RefreshCw, ShieldCheck, XCircle } from 'lucide-react';
+import { Camera, CheckCircle2, RefreshCw, ShieldCheck, XCircle, MoveRight } from 'lucide-react';
 import { getFaceModels } from '@/services/biometricService';
 import {
   captureFaceDescriptor,
@@ -10,16 +10,16 @@ import {
 } from '@/lib/faceApiClient';
 
 const ENROLL_STEPS = [
-  'Mira de frente y centra tu rostro.',
-  'Mantente de frente para una segunda captura.',
-  'Mueve ligeramente tu rostro y mira a la camara.',
+  { icon: '😐', label: 'Frontal', instruction: 'Mira directamente a la cámara con el rostro centrado.' },
+  { icon: '😐', label: 'Confirmación', instruction: 'Mantente de frente para confirmar tu rostro.' },
+  { icon: '🔄', label: 'Movimiento', instruction: 'Inclina ligeramente la cabeza y vuelve a mirar a la cámara.' },
 ];
 
 // La verificación ahora también exige movimiento real (anti-foto estática)
 const VERIFY_STEPS = [
-  'Mira de frente y centra tu rostro.',
-  'Mueve levemente la cabeza y vuelve al frente.',
-  'Ultima captura: leve movimiento y mira directo a la camara.',
+  { icon: '😐', label: 'Frontal', instruction: 'Mira directamente a la cámara con el rostro centrado.' },
+  { icon: '↔️', label: 'Movimiento', instruction: 'Mueve levemente la cabeza hacia un lado y vuelve al frente.' },
+  { icon: '🔄', label: 'Confirmación', instruction: 'Último paso: inclina levemente la cabeza y mira a la cámara.' },
 ];
 
 export function FaceCaptureStep({
@@ -130,12 +130,14 @@ export function FaceCaptureStep({
       }
 
       if (currentStep === 2 && !hasMeaningfulMovement(firstBoxRef.current, capture.box)) {
-        setError('Mueve ligeramente tu rostro antes de la última captura.');
+        // Solo pedir repetir ESTA foto, no reiniciar todas
+        setError('Inclina ligeramente tu cabeza antes de esta captura. Inténtalo de nuevo.');
         return;
       }
 
       if (!multiCapture && currentStep > 0 && !hasStableFacePosition(captures[currentStep - 1]?.box, capture.box)) {
-        setError('Mantente estable frente a la camara y repite la captura.');
+        // Solo pedir repetir ESTA foto
+        setError('Mantente estable frente a la cámara. Repite esta captura.');
         return;
       }
 
@@ -143,16 +145,16 @@ export function FaceCaptureStep({
       setCaptures(nextCaptures);
 
       if (nextCaptures.length < requiredCaptures) {
-        setSuccess(`Captura ${nextCaptures.length} de ${requiredCaptures} lista.`);
+        setSuccess(`✅ Captura ${nextCaptures.length} de ${requiredCaptures} completada.`);
         return;
       }
 
       // ── Validación client-side de varianza (bloqueo previo al servidor) ──────
       const allDescriptors = nextCaptures.map((item) => item.descriptor);
       if (!hasDescriptorVariance(allDescriptors)) {
-        setError('Las capturas son demasiado similares. Mira de frente y mueve ligeramente la cabeza entre cada captura.');
-        setCaptures([]);
-        firstBoxRef.current = null;
+        // Solo quitar la última captura para reintentarla con más movimiento
+        setError('Las capturas son muy similares. Mueve más la cabeza en esta captura.');
+        setCaptures(nextCaptures.slice(0, -1));
         return;
       }
 
@@ -167,17 +169,16 @@ export function FaceCaptureStep({
       });
       if (!result.passed) {
         setError(result.failureReason || 'No pudimos confirmar que eres la misma persona.');
-        setCaptures([]);
-        firstBoxRef.current = null;
+        // Solo reiniciar la última captura, conservar las anteriores
+        setCaptures(nextCaptures.slice(0, -1));
         return;
       }
-      setSuccess('Rostro verificado correctamente.');
+      setSuccess('🎉 Rostro verificado correctamente.');
       stopCamera();
       onSuccess?.(result);
     } catch (err) {
-      setError(err.message || 'No se pudo completar la verificacion facial.');
-      setCaptures([]);
-      firstBoxRef.current = null;
+      setError(err.message || 'No se pudo completar la verificación facial.');
+      // No reiniciar todas las capturas — solo permitir reintentar la actual
     } finally {
       setLoading(false);
     }
@@ -190,9 +191,8 @@ export function FaceCaptureStep({
     setSuccess('');
   };
 
-  const currentInstruction = multiCapture
-    ? ENROLL_STEPS[Math.min(captures.length, ENROLL_STEPS.length - 1)]
-    : VERIFY_STEPS[Math.min(captures.length, VERIFY_STEPS.length - 1)];
+  const steps = multiCapture ? ENROLL_STEPS : VERIFY_STEPS;
+  const currentStepData = steps[Math.min(captures.length, steps.length - 1)];
 
   const buttonLabel = loading
     ? loadingLabel
@@ -211,11 +211,43 @@ export function FaceCaptureStep({
         {modelVersion && <p className="mt-1 text-xs text-gray-500">Modelo {modelVersion}</p>}
       </div>
 
+      {/* ── Step Indicators ── */}
+      {(multiCapture || captureCount > 1) && (
+        <div className="face-steps-container">
+          {steps.map((step, index) => {
+            const isDone = index < captures.length;
+            const isCurrent = index === captures.length;
+            return (
+              <div
+                key={step.label}
+                className={`face-step-card ${
+                  isDone ? 'face-step-done' : isCurrent ? 'face-step-active' : 'face-step-pending'
+                }`}
+              >
+                <span className="face-step-icon">{isDone ? '✅' : step.icon}</span>
+                <span className="face-step-label">{step.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       <div className="relative mx-auto h-[clamp(210px,42dvh,320px)] w-full max-w-[320px] overflow-hidden rounded-xl border border-white/10 bg-[#101010] shadow-inner sm:aspect-square sm:h-auto sm:max-h-none sm:max-w-none">
         <video ref={videoRef} playsInline muted className="h-full w-full scale-x-[-1] object-cover" />
-        <div className="pointer-events-none absolute inset-6 rounded-full border border-white/25 shadow-[0_0_0_999px_rgba(0,0,0,0.22)]" />
-        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-lg border border-white/10 bg-black/70 px-3 py-2 text-center text-xs font-medium leading-snug text-white backdrop-blur-sm sm:text-sm">
-          {currentInstruction}
+        <div className={`pointer-events-none absolute inset-6 rounded-full border-2 shadow-[0_0_0_999px_rgba(0,0,0,0.22)] transition-colors duration-500 ${
+          error ? 'border-red-400/60' : captures.length >= steps.length ? 'border-green-400/60' : 'border-blue-400/40'
+        }`} />
+        {/* Instruction overlay on video */}
+        <div className="pointer-events-none absolute inset-x-3 bottom-3 rounded-xl border border-white/10 bg-black/75 px-4 py-3 text-center backdrop-blur-md">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-lg leading-none">{currentStepData.icon}</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-blue-300">
+              Paso {Math.min(captures.length + 1, steps.length)} — {currentStepData.label}
+            </span>
+          </div>
+          <p className="mt-1 text-xs font-medium leading-snug text-white/90 sm:text-sm">
+            {currentStepData.instruction}
+          </p>
         </div>
         {!ready && !error && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
@@ -225,26 +257,28 @@ export function FaceCaptureStep({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
+        <div className="face-feedback-error">
           <XCircle className="h-4 w-4 shrink-0" />
-          {error}
+          <div>
+            <p className="font-medium">{error}</p>
+            <p className="mt-0.5 text-xs text-red-300/70">Solo necesitas repetir esta captura.</p>
+          </div>
         </div>
       )}
       {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 p-3 text-sm text-green-300">
+        <div className="face-feedback-success">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {success}
         </div>
       )}
 
+      {/* ── Progress bar ── */}
       {(multiCapture || captureCount > 1) && (
-        <div className="grid grid-cols-3 gap-2">
-          {(multiCapture ? ENROLL_STEPS : VERIFY_STEPS).map((step, index) => (
-            <div
-              key={step}
-              className={`h-1.5 rounded-full transition-colors ${index < captures.length ? 'bg-blue-500' : 'bg-white/10'}`}
-            />
-          ))}
+        <div className="face-progress-bar">
+          <div
+            className="face-progress-fill"
+            style={{ width: `${(captures.length / steps.length) * 100}%` }}
+          />
         </div>
       )}
 
@@ -264,7 +298,8 @@ export function FaceCaptureStep({
           onClick={resetCaptures}
           className="w-full py-1.5 text-sm font-medium text-gray-400 transition-colors hover:text-white"
         >
-          Reiniciar capturas
+          <RefreshCw className="mr-1 inline h-3.5 w-3.5" />
+          Reiniciar todas las capturas
         </button>
       )}
 
@@ -275,7 +310,7 @@ export function FaceCaptureStep({
           className="flex w-full items-center justify-center gap-2 py-2 text-sm font-medium text-blue-400 transition-colors hover:text-blue-300"
         >
           <RefreshCw className="h-4 w-4" />
-          Reintentar camara
+          Reintentar cámara
         </button>
       )}
     </div>

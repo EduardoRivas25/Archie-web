@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import SplitText from './SplitText';
 import RotatingText from './RotatingText';
 
-// Dynamically import all images from the fotos-archie directory
+// Lazy-load image URLs (not eagerly downloading bytes)
 const imageModules = import.meta.glob('@/fotos-archie/*.jpg', { eager: true, query: '?url', import: 'default' });
 
 // Extract and sort URLs to ensure frame order is strictly sequential
@@ -15,26 +15,45 @@ export function HeroScrollAnimation() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [images, setImages] = useState<HTMLImageElement[]>([]);
 
-  // Preload images into memory
+  // Progressive image preloading: show first frame ASAP, load rest in background
   useEffect(() => {
-    const loadedImages: HTMLImageElement[] = [];
-    let loadedCount = 0;
-
     if (frameUrls.length === 0) return;
 
-    frameUrls.forEach((url, index) => {
-      const img = new Image();
-      img.src = url;
-      img.onload = () => {
-        loadedCount++;
-        if (loadedCount === frameUrls.length) {
-          setImages(loadedImages);
-          // Initial draw of the first frame once all are loaded
-          requestAnimationFrame(() => drawImage(0, loadedImages));
-        }
-      };
-      loadedImages[index] = img;
-    });
+    const allImages: HTMLImageElement[] = new Array(frameUrls.length);
+
+    // 1. Load the first frame immediately for instant display
+    const first = new Image();
+    first.src = frameUrls[0];
+    first.onload = () => {
+      allImages[0] = first;
+      setImages([...allImages]);
+      requestAnimationFrame(() => drawImage(0, allImages));
+    };
+
+    // 2. Load the remaining frames progressively in batches
+    const BATCH = 5;
+    let idx = 1;
+    const loadBatch = () => {
+      const end = Math.min(idx + BATCH, frameUrls.length);
+      let pending = end - idx;
+      if (pending <= 0) return;
+      for (let i = idx; i < end; i++) {
+        const img = new Image();
+        img.src = frameUrls[i];
+        img.onload = () => {
+          allImages[i] = img;
+          pending--;
+          if (pending === 0) {
+            setImages([...allImages]);
+            idx = end;
+            if (idx < frameUrls.length) requestIdleCallback(loadBatch);
+          }
+        };
+      }
+    };
+    // Start loading remaining frames after a short delay so the first paint isn't blocked
+    const timer = setTimeout(loadBatch, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const drawImage = (frameIndex: number, imgs: HTMLImageElement[] = images) => {
